@@ -100,18 +100,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Confirm the user's email in Supabase
-    const { error } = await supabase.auth.updateUser({
-      email_confirm: true
-    });
-
-    if (error) {
-      console.error('Error confirming email:', error);
-      return NextResponse.json(
-        { error: 'خطا در تایید ایمیل' },
-        { status: 500 }
-      );
-    }
+    // For email confirmation, we typically don't need to call updateUser
+    // The confirmation is handled by the token verification above
+    // We can optionally update user metadata or handle additional logic here
+    
+    // If you need to mark the user as confirmed in your database, you can do it here
+    // For now, we'll just proceed with the token verification
 
     // Clean up the token
     confirmationTokens.delete(token);

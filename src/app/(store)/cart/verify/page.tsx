@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function ZarinpalVerifyPage() {
+function ZarinpalVerifyPageContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'idle' | 'verifying' | 'success' | 'failed'>('idle');
   const [message, setMessage] = useState('');
@@ -75,6 +75,23 @@ export default function ZarinpalVerifyPage() {
         {status === 'failed' && <div className="text-red-600">{message || 'پرداخت ناموفق بود'}</div>}
       </div>
     </main>
+  );
+}
+
+export default function ZarinpalVerifyPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-xl shadow p-6 max-w-md w-full text-center">
+          <div className="animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </main>
+    }>
+      <ZarinpalVerifyPageContent />
+    </Suspense>
   );
 }
 

@@ -48,10 +48,11 @@ const TimeIcon = () => (
 );
 
 // Floating Elements Component
-const FloatingElement = ({ delay, duration, children }: {
+const FloatingElement = ({ delay, duration, children, className }: {
   delay: number;
   duration: number;
   children: React.ReactNode;
+  className?: string;
 }) => (
   <motion.div
     animate={{
@@ -65,7 +66,7 @@ const FloatingElement = ({ delay, duration, children }: {
       repeat: Infinity,
       ease: "easeInOut"
     }}
-    className="absolute"
+    className={`absolute ${className || ''}`}
   >
     {children}
   </motion.div>

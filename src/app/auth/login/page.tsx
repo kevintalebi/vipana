@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const initialRole = searchParams?.get('role') || 'buyer';
   const [email, setEmail] = useState('');
@@ -190,5 +190,28 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded mb-6"></div>
+            <div className="space-y-4">
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-12 bg-gray-200 rounded mt-4"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 } 
