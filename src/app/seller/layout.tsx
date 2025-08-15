@@ -5,11 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../hooks/useNavigationWithLoading';
 import { useEffect, useState } from 'react';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 const sellerLinks = [
   { href: '/seller/reports', label: 'آمار و گزارشات', icon: <ReportsIcon /> },
   { href: '/seller/profile', label: 'اطلاعات فروشگاه', icon: <ProfileIcon /> },
@@ -28,6 +23,18 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          console.error('Supabase environment variables are not configured');
+          await navigateWithLoading('/');
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
         // Check if user is authenticated
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
@@ -64,8 +71,19 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   }, [navigateWithLoading]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    await navigateWithLoading('/');
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await supabase.auth.signOut();
+      }
+      await navigateWithLoading('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      await navigateWithLoading('/');
+    }
   };
 
   const customLinks = [

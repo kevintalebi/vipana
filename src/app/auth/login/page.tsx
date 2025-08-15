@@ -4,11 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const initialRole = searchParams?.get('role') || 'buyer';
@@ -27,6 +22,18 @@ function LoginPageContent() {
     setSuccess('');
     
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        setLoading(false);
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       // Step 1: Authenticate user with Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -90,6 +97,18 @@ function LoginPageContent() {
     setSuccess('');
 
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        setResendingEmail(false);
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       // Get user role from database
       const { data: userData, error: userError } = await supabase
         .from('users')

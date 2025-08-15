@@ -5,11 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import LoginPromptModal from './LoginPromptModal';
 import Link from 'next/link';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 interface Product {
   id: number;
   name: string;
@@ -67,6 +62,19 @@ export default function ProductsHome() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          console.error('Supabase environment variables are not configured');
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
         // First, load user and favorites
         setFavoritesLoading(true);
         const { data: { user } } = await supabase.auth.getUser();

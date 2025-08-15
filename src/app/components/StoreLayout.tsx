@@ -8,11 +8,6 @@ import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../hooks/useNavigationWithLoading';
 import Footer from './Footer';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 interface NavLink {
   href: string;
   label: string;
@@ -36,18 +31,33 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setIsLoggedIn(true);
-        // Get user role from users table
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        if (userData) {
-          setUserRole(userData.role);
+      try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          console.error('Supabase environment variables are not configured');
+          return;
         }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setIsLoggedIn(true);
+          // Get user role from users table
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('user_id', user.id)
+            .single();
+          if (userData) {
+            setUserRole(userData.role);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
       }
     };
     checkAuth();

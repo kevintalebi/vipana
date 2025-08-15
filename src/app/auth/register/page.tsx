@@ -3,11 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +20,18 @@ export default function RegisterPage() {
     setSuccess('');
     
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        setLoading(false);
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       // Step 1: Register user in Supabase Auth (without email confirmation)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -105,19 +112,17 @@ export default function RegisterPage() {
         const emailData = await response.json();
 
         if (response.ok) {
-          setSuccess('ثبت‌نام با موفقیت انجام شد! ایمیل تایید ارسال شد. لطفاً ایمیل خود را بررسی کنید.');
+          setSuccess('حساب کاربری با موفقیت ایجاد شد! لطفاً ایمیل خود را تایید کنید.');
+          // Redirect to login after 3 seconds
+          setTimeout(() => {
+            navigateWithLoading('/auth/login');
+          }, 3000);
         } else {
-          console.warn('Email sending failed:', emailData.error);
-          setSuccess('ثبت‌نام با موفقیت انجام شد! اما ارسال ایمیل تایید با مشکل مواجه شد. لطفاً با پشتیبانی تماس بگیرید.');
+          setError('ثبت نام انجام شد اما ارسال ایمیل تایید با خطا مواجه شد: ' + (emailData.error || 'خطای نامشخص'));
         }
       } catch (emailError) {
-        console.error('Error sending confirmation email:', emailError);
-        setSuccess('ثبت‌نام با موفقیت انجام شد! اما ارسال ایمیل تایید با مشکل مواجه شد. لطفاً با پشتیبانی تماس بگیرید.');
+        setError('ثبت نام انجام شد اما ارسال ایمیل تایید با خطا مواجه شد');
       }
-
-      setTimeout(async () => {
-        await navigateWithLoading('/auth/login');
-      }, 3000);
       
     } catch (err: any) {
       setError('خطا در ثبت نام: ' + (err.message || 'خطای نامشخص'));
@@ -129,7 +134,7 @@ export default function RegisterPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-center text-purple-700 mb-6">ایجاد حساب کاربری</h1>
+        <h1 className="text-2xl font-bold text-center text-purple-700 mb-6">ثبت نام</h1>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div>
             <label className="block mb-1 font-semibold text-gray-700" htmlFor="email">ایمیل</label>
@@ -141,17 +146,6 @@ export default function RegisterPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 font-semibold text-gray-700" htmlFor="mobile">شماره موبایل</label>
-            <input 
-              type="tel" 
-              id="mobile"
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" 
-              placeholder="09123456789" 
-              value={mobile}
-              onChange={e => setMobile(e.target.value)}
             />
           </div>
           <div>
@@ -167,10 +161,21 @@ export default function RegisterPage() {
             />
           </div>
           <div>
+            <label className="block mb-1 font-semibold text-gray-700" htmlFor="mobile">شماره موبایل (اختیاری)</label>
+            <input 
+              type="tel" 
+              id="mobile"
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" 
+              placeholder="09123456789" 
+              value={mobile}
+              onChange={e => setMobile(e.target.value)}
+            />
+          </div>
+          <div>
             <label className="block mb-1 font-semibold text-gray-700" htmlFor="role">نوع کاربری</label>
             <select 
-              id="role" 
-              className="w-full border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+              id="role"
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" 
               value={role}
               onChange={e => setRole(e.target.value)}
             >
@@ -178,19 +183,20 @@ export default function RegisterPage() {
               <option value="seller">فروشنده</option>
             </select>
           </div>
-          
           <button 
             type="submit"
             className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold transition mt-4"
             disabled={loading}
           >
-            {loading ? 'در حال ثبت‌نام...' : 'ثبت نام'}
+            {loading ? 'در حال ثبت نام...' : 'ثبت نام'}
           </button>
         </form>
+        
         {error && <p className="text-red-600 text-center mt-4">{error}</p>}
         {success && <p className="text-green-600 text-center mt-4">{success}</p>}
+        
         <p className="text-center text-gray-600 mt-6">
-          حساب کاربری دارید؟ 
+          قبلاً حساب کاربری دارید؟
           <a href="/auth/login" className="text-purple-600 hover:underline font-semibold"> وارد شوید</a>
         </p>
       </div>

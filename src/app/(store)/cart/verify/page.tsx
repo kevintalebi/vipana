@@ -4,11 +4,6 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 function ZarinpalVerifyPageContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'idle' | 'verifying' | 'success' | 'failed'>('idle');
@@ -42,11 +37,19 @@ function ZarinpalVerifyPageContent() {
         try {
           const productIdsRaw = localStorage.getItem('vipana-last-product-ids');
           const productIds: number[] = productIdsRaw ? JSON.parse(productIdsRaw) : [];
-          const { data: { user } } = await supabase.auth.getUser();
-          const userId = user?.id || null;
-          if (userId && Array.isArray(productIds) && productIds.length > 0) {
-            const payload = productIds.map(pid => ({ user_id: userId, product_id: pid, status: 'pending' }));
-            await supabase.from('orders').insert(payload);
+          
+          // Create Supabase client only when needed
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          
+          if (supabaseUrl && supabaseKey) {
+            const supabase = createClient(supabaseUrl, supabaseKey);
+            const { data: { user } } = await supabase.auth.getUser();
+            const userId = user?.id || null;
+            if (userId && Array.isArray(productIds) && productIds.length > 0) {
+              const payload = productIds.map(pid => ({ user_id: userId, product_id: pid, status: 'pending' }));
+              await supabase.from('orders').insert(payload);
+            }
           }
         } catch {}
 
