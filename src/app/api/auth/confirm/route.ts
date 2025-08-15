@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 // Store confirmation tokens in memory (in production, use Redis or database)
 const confirmationTokens = new Map<string, { userId: string; email: string; role: string; expiresAt: number }>();
 
@@ -99,6 +94,20 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Create Supabase client only when needed
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Supabase environment variables are not configured');
+      return NextResponse.json(
+        { error: 'خطای پیکربندی سرور' },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // For email confirmation, we typically don't need to call updateUser
     // The confirmation is handled by the token verification above
