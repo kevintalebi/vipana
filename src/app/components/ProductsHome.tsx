@@ -134,6 +134,18 @@ export default function ProductsHome() {
 
   const fetchProducts = async () => {
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        setLoading(false);
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       setLoading(true);
       setError('');
       const { data, error } = await supabase
@@ -161,8 +173,15 @@ export default function ProductsHome() {
 
   const fetchCategories = async () => {
     try {
-      const { data } = await supabase.from('categories').select('id, name');
-      setCategories(data || []);
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data } = await supabase.from('categories').select('id, name');
+        setCategories(data || []);
+      }
     } catch {}
   };
 
@@ -230,6 +249,17 @@ export default function ProductsHome() {
       return;
     }
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       if (favoriting.has(productId)) return;
       setFavoriting(prev => new Set(prev).add(productId));
       const shouldFavorite = !favoriteIds.has(productId);
@@ -237,12 +267,12 @@ export default function ProductsHome() {
       
       if (shouldFavorite) {
         // Check if the record already exists before inserting
-                 const { data: existingRecord } = await supabase
-           .from('favorites')
-           .select('id')
-           .eq('user_id', currentUserId)
-           .eq('product_id', productId.toString())
-           .single();
+        const { data: existingRecord } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .eq('product_id', productId.toString())
+          .single();
         
         if (existingRecord) {
           console.log(`Favorite record already exists for product ${productId}, skipping insert`);
@@ -256,9 +286,9 @@ export default function ProductsHome() {
         } else {
           // Record doesn't exist, insert it
           console.log(`Inserting new favorite record for product ${productId}`);
-                     const { error } = await supabase
-             .from('favorites')
-             .insert({ user_id: currentUserId, product_id: productId.toString() });
+          const { error } = await supabase
+            .from('favorites')
+            .insert({ user_id: currentUserId, product_id: productId.toString() });
           if (error) throw error;
           
           // Optimistic UI update
@@ -272,11 +302,11 @@ export default function ProductsHome() {
       } else {
         // Remove from favorites
         console.log(`Removing favorite record for product ${productId}`);
-                 const { error } = await supabase
-           .from('favorites')
-           .delete()
-           .eq('user_id', currentUserId)
-           .eq('product_id', productId.toString());
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', currentUserId)
+          .eq('product_id', productId.toString());
         if (error) throw error;
         
         // Optimistic UI update
