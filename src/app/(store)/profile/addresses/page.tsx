@@ -3,11 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type Address = {
   id: number;
   user_id: string;
@@ -34,23 +29,40 @@ export default function AddressesPage() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      setError('');
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth.user?.id || null;
-      setCurrentUserId(uid);
-      if (!uid) {
+      try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
+        const { data: auth } = await supabase.auth.getUser();
+        const uid = auth.user?.id || null;
+        setCurrentUserId(uid);
+        if (!uid) {
+          setLoading(false);
+          return;
+        }
+        const { data, error } = await supabase
+          .from('addresses')
+          .select('*')
+          .eq('user_id', uid)
+          .order('id', { ascending: false });
+        if (error) setError('خطا در دریافت آدرس‌ها');
+        setAddresses((data as Address[]) || []);
+      } catch (err) {
+        setError('خطا در بارگذاری آدرس‌ها');
+      } finally {
         setLoading(false);
-        return;
       }
-      const { data, error } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('user_id', uid)
-        .order('id', { ascending: false });
-      if (error) setError('خطا در دریافت آدرس‌ها');
-      setAddresses((data as Address[]) || []);
-      setLoading(false);
     };
     init();
   }, []);
@@ -63,8 +75,20 @@ export default function AddressesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUserId) return;
-    setError('');
+    
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      setError('');
       if (editingId) {
         const { error } = await supabase
           .from('addresses')
@@ -98,8 +122,8 @@ export default function AddressesPage() {
         if (data) setAddresses(prev => [data as Address, ...prev]);
       }
       resetForm();
-    } catch (e) {
-      setError('ثبت/ویرایش آدرس با خطا مواجه شد');
+    } catch (err: any) {
+      setError(err.message || 'خطا در ذخیره آدرس');
     }
   };
 
@@ -117,6 +141,17 @@ export default function AddressesPage() {
   const handleDelete = async (id: number) => {
     if (!currentUserId) return;
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setError('خطای پیکربندی سرور');
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       const { error } = await supabase
         .from('addresses')
         .delete()

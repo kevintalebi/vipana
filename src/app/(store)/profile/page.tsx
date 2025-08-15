@@ -6,17 +6,24 @@ import { OrdersIcon, ReviewsIcon, LogoutIcon } from '@/app/components/Icons';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function ProfilePage() {
   const { navigateWithLoading } = useNavigationWithLoading();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    await navigateWithLoading('/');
+    try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await supabase.auth.signOut();
+      }
+      await navigateWithLoading('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      await navigateWithLoading('/');
+    }
   };
 
   return (
