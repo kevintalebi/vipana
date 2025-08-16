@@ -6,11 +6,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import LoginPromptModal from '../../../components/LoginPromptModal';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type Seller = {
   user_id: string;
   id?: number;
@@ -29,9 +24,21 @@ export default function FollowingPage() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      setError('');
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
         const { data: { user } } = await supabase.auth.getUser();
         const uid = user?.id || null;
         setCurrentUserId(uid);
@@ -77,6 +84,17 @@ export default function FollowingPage() {
       return;
     }
     try {
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        return;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
       const currentlyFollowing = !!isFollowingMap[sellerUserId];
       if (currentlyFollowing) {
         const { error } = await supabase

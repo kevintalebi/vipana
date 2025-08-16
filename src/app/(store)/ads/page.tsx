@@ -4,11 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import LoginPromptModal from '../../components/LoginPromptModal';
 import ShareModal from '../../components/ShareModal';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 interface Post {
   id: string;
   user_id: string;
@@ -54,13 +49,24 @@ export default function AdsPage() {
   useEffect(() => {
     const initializeData = async () => {
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          console.error('Supabase environment variables are not configured');
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
         // First, get current user
         const { data: { user } } = await supabase.auth.getUser();
         const userId = user?.id || null;
         setCurrentUser(userId);
         
         // Then fetch posts with user data
-        await fetchPosts(userId);
+        await fetchPosts(userId, supabase);
         
         // Force a re-render to ensure likes are properly displayed
         setTimeout(() => {
@@ -76,7 +82,7 @@ export default function AdsPage() {
     initializeData();
   }, []);
 
-  const fetchPosts = async (userId: string | null) => {
+  const fetchPosts = async (userId: string | null, supabase: any) => {
       try {
         setLikesLoading(true);
         // First, fetch all posts

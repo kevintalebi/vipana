@@ -4,11 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type RootCategory = {
   id: number;
   name: string;
@@ -22,6 +17,18 @@ export default function CategoriesPage() {
   useEffect(() => {
     const fetchRootCategories = async () => {
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
         setLoading(true);
         setError('');
         // Public read using anon key; requires RLS policy to allow anon read of roots

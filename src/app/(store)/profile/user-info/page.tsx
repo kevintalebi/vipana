@@ -3,11 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type ProfileRow = {
   id?: string | number;
   email?: string;
@@ -57,10 +52,22 @@ export default function UserInfoPage() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      setError('');
-      setSuccess('');
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
+        setSuccess('');
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
           throw new Error('کاربر یافت نشد. لطفاً وارد شوید.');

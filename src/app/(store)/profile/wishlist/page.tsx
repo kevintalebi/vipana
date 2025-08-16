@@ -4,11 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type Product = {
   id: number;
   name: string;
@@ -24,9 +19,21 @@ export default function WishlistPage() {
 
   useEffect(() => {
     const loadWishlist = async () => {
-      setLoading(true);
-      setError('');
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
         const { data: { user } } = await supabase.auth.getUser();
         const uid = user?.id || null;
         setUserId(uid);
@@ -66,12 +73,19 @@ export default function WishlistPage() {
   const removeFavorite = async (productId: number) => {
     if (!userId) return;
     try {
-      setProducts(prev => prev.filter(p => p.id !== productId));
-      await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', userId)
-        .eq('product_id', productId);
+      // Create Supabase client
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', userId)
+          .eq('product_id', productId);
+      }
     } catch (e) {
       // ignore; optimistic removal
     }

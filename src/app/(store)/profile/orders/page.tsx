@@ -3,11 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type OrderRow = {
   user_id: string;
   product_id: number;
@@ -30,9 +25,21 @@ export default function OrdersPage() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      setError('');
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
         const { data: { user } } = await supabase.auth.getUser();
         const uid = user?.id || null;
         setUserId(uid);

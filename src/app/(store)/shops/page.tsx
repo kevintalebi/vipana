@@ -4,11 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function ShopsPage() {
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,9 +11,21 @@ export default function ShopsPage() {
 
   useEffect(() => {
     const fetchSellers = async () => {
-      setLoading(true);
-      setError('');
       try {
+        // Create Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey) {
+          setError('خطای پیکربندی سرور');
+          setLoading(false);
+          return;
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        setLoading(true);
+        setError('');
         const { data, error } = await supabase
           .from('sellers')
           .select('id, user_id, name, description, profile_image');
