@@ -132,7 +132,7 @@ export default function AdsPage() {
             if (likesData) {
               userLikes = likesData.map((like: any) => like.post_id);
               console.log('Loaded user likes:', userLikes);
-              console.log('User likes data types:', userLikes.map(id => typeof id));
+              console.log('User likes data types:', userLikes.map((id: any) => typeof id));
             }
 
             // Fetch follow information for current user
@@ -184,7 +184,7 @@ export default function AdsPage() {
 
           // Combine posts with seller information, like data, and comment counts
           const postsWithSellers = postsData.map((post: any) => {
-            console.log(`Post ${post.id} type: ${typeof post.id}, userLikes: [${userLikes}], userLikes types: [${userLikes.map(id => typeof id)}]`);
+            console.log(`Post ${post.id} type: ${typeof post.id}, userLikes: [${userLikes}], userLikes types: [${userLikes.map((id: any) => typeof id)}]`);
             const isLiked = userLikes.includes(post.id.toString());
             console.log(`Rendering post ${post.id} - isLiked: ${isLiked}, userLikes: [${userLikes}]`);
             if (isLiked) {
@@ -202,7 +202,7 @@ export default function AdsPage() {
             };
           });
 
-          console.log('Final posts with counts:', postsWithSellers.map(p => ({
+          console.log('Final posts with counts:', postsWithSellers.map((p: any) => ({
             id: p.id,
             likeCount: p.likeCount,
             commentCount: p.commentCount
@@ -260,7 +260,7 @@ export default function AdsPage() {
         }
 
         // Update local state to show unliked
-        setPosts(prev => prev.map(p => {
+        setPosts(prev => prev.map((p: any) => {
           if (p.id === postId) {
             return {
               ...p,
@@ -285,7 +285,7 @@ export default function AdsPage() {
         }
 
         // Update local state to show liked
-        setPosts(prev => prev.map(p => {
+        setPosts(prev => prev.map((p: any) => {
           if (p.id === postId) {
             return {
               ...p,
@@ -327,7 +327,7 @@ export default function AdsPage() {
 
              // Then, fetch user information for comments from buyers table
        if (commentsData && commentsData.length > 0) {
-         const userIds = [...new Set(commentsData.map(comment => comment.user_id))];
+         const userIds = [...new Set(commentsData.map((comment: any) => comment.user_id))];
          
          const { data: usersData, error: usersError } = await supabase
            .from('buyers')
@@ -350,7 +350,7 @@ export default function AdsPage() {
         }
 
         // Combine comments with user information
-        const commentsWithUsers = commentsData.map(comment => ({
+        const commentsWithUsers = commentsData.map((comment: any) => ({
           ...comment,
           user: usersMap.get(comment.user_id) || null
         }));
@@ -408,7 +408,7 @@ export default function AdsPage() {
        setNewComment('');
        
        // Update the comment count for the selected post
-       setPosts(prev => prev.map(p => {
+       setPosts(prev => prev.map((p: any) => {
          if (p.id === selectedPost.id) {
            return {
              ...p,
@@ -460,7 +460,7 @@ export default function AdsPage() {
         console.log('Successfully unfollowed seller:', sellerId);
         
         // Update posts state
-        setPosts(prev => prev.map(post => 
+        setPosts(prev => prev.map((post: any) => 
           post.user_id === sellerId 
             ? { ...post, isFollowing: false }
             : post
@@ -482,7 +482,7 @@ export default function AdsPage() {
         console.log('Successfully followed seller:', sellerId);
         
         // Update posts state
-        setPosts(prev => prev.map(post => 
+        setPosts(prev => prev.map((post: any) => 
           post.user_id === sellerId 
             ? { ...post, isFollowing: true }
             : post
@@ -517,7 +517,7 @@ export default function AdsPage() {
   return (
     <>
       <div className="max-w-xl mx-auto py-8 space-y-8">
-                 {posts.map(post => (
+                 {posts.map((post: any) => (
            <div key={`${post.id}-${post.isLiked}-${likesLoading}`} className="bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Header */}
             <div className="flex items-center px-4 pt-4 pb-2 gap-2">
@@ -557,7 +557,7 @@ export default function AdsPage() {
             {/* Media */}
             {post.media_url && (
               <div className="w-full aspect-square bg-gray-100 relative">
-                {post.media_url.split(',').map((url, index) => {
+                {post.media_url.split(',').map((url: any, index: any) => {
                   const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i);
                   return (
                     <div key={index} className="w-full h-full">
@@ -669,7 +669,7 @@ export default function AdsPage() {
                   <p className="text-sm mt-1">اولین نظر را شما ثبت کنید!</p>
                 </div>
               ) : (
-                                 comments.map(comment => (
+                                 comments.map((comment: any) => (
                    <div key={comment.id} className="flex space-x-6 space-x-reverse">
                      <div className="flex-shrink-0 -mr-2 ml-2">
                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
