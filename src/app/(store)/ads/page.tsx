@@ -98,7 +98,7 @@ export default function AdsPage() {
 
         // Then, fetch seller information for each post
         if (postsData && postsData.length > 0) {
-          const userIds = [...new Set(postsData.map(post => post.user_id))];
+          const userIds = [...new Set(postsData.map((post: any) => post.user_id))];
           
           const { data: sellersData, error: sellersError } = await supabase
             .from('sellers')
@@ -115,25 +115,25 @@ export default function AdsPage() {
           // Create a map of user_id to seller data
           const sellersMap = new Map();
           if (sellersData) {
-            sellersData.forEach(seller => {
+            sellersData.forEach((seller: any) => {
               sellersMap.set(seller.user_id, seller);
             });
           }
 
-                     // Fetch like information for current user
-           let userLikes: string[] = [];
-           let userFollowsData: string[] = [];
-           if (userId) {
-             const { data: likesData } = await supabase
-               .from('likes')
-               .select('post_id')
-               .eq('user_id', userId);
-             
-             if (likesData) {
-               userLikes = likesData.map(like => like.post_id);
-               console.log('Loaded user likes:', userLikes);
-               console.log('User likes data types:', userLikes.map(id => typeof id));
-             }
+          // Fetch like information for current user
+          let userLikes: string[] = [];
+          let userFollowsData: string[] = [];
+          if (userId) {
+            const { data: likesData } = await supabase
+              .from('likes')
+              .select('post_id')
+              .eq('user_id', userId);
+            
+            if (likesData) {
+              userLikes = likesData.map((like: any) => like.post_id);
+              console.log('Loaded user likes:', userLikes);
+              console.log('User likes data types:', userLikes.map(id => typeof id));
+            }
 
             // Fetch follow information for current user
             const { data: followsData } = await supabase
@@ -142,7 +142,7 @@ export default function AdsPage() {
               .eq('user_id', userId);
             
             if (followsData) {
-              userFollowsData = followsData.map(follow => follow.seller_id);
+              userFollowsData = followsData.map((follow: any) => follow.seller_id);
             }
           }
 
@@ -182,25 +182,25 @@ export default function AdsPage() {
           console.log('Like counts map:', Object.fromEntries(likeCountsMap));
           console.log('Comment counts map:', Object.fromEntries(commentCountsMap));
 
-                     // Combine posts with seller information, like data, and comment counts
-           const postsWithSellers = postsData.map(post => {
-             console.log(`Post ${post.id} type: ${typeof post.id}, userLikes: [${userLikes}], userLikes types: [${userLikes.map(id => typeof id)}]`);
-             const isLiked = userLikes.includes(post.id.toString());
-             console.log(`Rendering post ${post.id} - isLiked: ${isLiked}, userLikes: [${userLikes}]`);
-             if (isLiked) {
-               console.log(`✅ Post ${post.id} is marked as LIKED - should show RED heart`);
-             } else {
-               console.log(`❌ Post ${post.id} is NOT liked - should show gray heart`);
-             }
-             return {
-               ...post,
-               seller: sellersMap.get(post.user_id) || null,
-               isLiked: isLiked,
-               likeCount: likeCountsMap.get(post.id) || 0,
-               commentCount: commentCountsMap.get(post.id) || 0,
-               isFollowing: userFollowsData.includes(post.user_id)
-             };
-           });
+          // Combine posts with seller information, like data, and comment counts
+          const postsWithSellers = postsData.map((post: any) => {
+            console.log(`Post ${post.id} type: ${typeof post.id}, userLikes: [${userLikes}], userLikes types: [${userLikes.map(id => typeof id)}]`);
+            const isLiked = userLikes.includes(post.id.toString());
+            console.log(`Rendering post ${post.id} - isLiked: ${isLiked}, userLikes: [${userLikes}]`);
+            if (isLiked) {
+              console.log(`✅ Post ${post.id} is marked as LIKED - should show RED heart`);
+            } else {
+              console.log(`❌ Post ${post.id} is NOT liked - should show gray heart`);
+            }
+            return {
+              ...post,
+              seller: sellersMap.get(post.user_id) || null,
+              isLiked: isLiked,
+              likeCount: likeCountsMap.get(post.id) || 0,
+              commentCount: commentCountsMap.get(post.id) || 0,
+              isFollowing: userFollowsData.includes(post.user_id)
+            };
+          });
 
           console.log('Final posts with counts:', postsWithSellers.map(p => ({
             id: p.id,
