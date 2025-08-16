@@ -233,6 +233,16 @@ export default function AdsPage() {
     console.log('User is logged in, proceeding with like logic');
 
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       const post = posts.find(p => p.id === postId);
       if (!post) return;
 
@@ -312,6 +322,17 @@ export default function AdsPage() {
     
     // Fetch comments for this post
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        setComments([]);
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       // First, fetch comments
       const { data: commentsData, error } = await supabase
         .from('comments')
@@ -370,6 +391,16 @@ export default function AdsPage() {
 
     setCommentLoading(true);
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       // Insert the comment
       const { data: newCommentData, error } = await supabase
         .from('comments')
@@ -444,6 +475,16 @@ export default function AdsPage() {
     }
 
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       if (isCurrentlyFollowing) {
         // Unfollow: Delete from follows table
         const { error } = await supabase
