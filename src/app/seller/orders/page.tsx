@@ -3,12 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type OrderRow = { user_id: string; product_id: number; status: string };
+type OrderRow = { buyer_id: string; seller_id: string; product_id: number; status: string };
 type ProductRow = { id: number; name: string; price: number; main_image?: string | null };
 type BuyerRow = { user_id: string; name?: string | null; image_url?: string | null };
 
@@ -31,6 +26,15 @@ export default function SellerOrdersPage() {
       setLoading(true);
       setError('');
       try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Supabase environment variables are not configured');
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('ابتدا وارد شوید');
 
@@ -49,16 +53,16 @@ export default function SellerOrdersPage() {
           return;
         }
 
-        // Fetch orders for these products
+        // Fetch orders for this seller
         const { data: orders, error: ordErr } = await supabase
           .from('orders')
-          .select('user_id, product_id, status')
-          .in('product_id', productIds);
+          .select('buyer_id, seller_id, product_id, status')
+          .eq('seller_id', user.id);
         if (ordErr) throw ordErr;
         const orderList = (orders || []) as OrderRow[];
 
         // Fetch buyers names
-        const buyerIds = Array.from(new Set(orderList.map(o => o.user_id)));
+        const buyerIds = Array.from(new Set(orderList.map(o => o.buyer_id)));
         let buyersMap: Record<string, BuyerRow> = {};
         if (buyerIds.length > 0) {
           const { data: buyers } = await supabase
@@ -73,14 +77,14 @@ export default function SellerOrdersPage() {
         const productMap = Object.fromEntries(productList.map(p => [p.id, p] as const));
         const view = orderList.map((o, idx) => {
           const prod = productMap[o.product_id];
-          const buyerName = buyersMap[o.user_id]?.name || '—';
+          const buyerName = buyersMap[o.buyer_id]?.name || '—';
           return {
-            id: `${o.user_id}-${o.product_id}-${idx}`,
+            id: `${o.buyer_id}-${o.product_id}-${idx}`,
             buyer: buyerName,
             products: prod?.name || `محصول #${o.product_id}`,
             total: prod?.price || 0,
             status: o.status || 'pending',
-            userId: o.user_id,
+            userId: o.buyer_id,
             productId: o.product_id,
           };
         });
@@ -148,6 +152,15 @@ export default function SellerOrdersPage() {
                   setSelectedStatus(order.status);
                   setTrackingCode('');
                   try {
+                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+                    if (!supabaseUrl || !supabaseKey) {
+                      throw new Error('Supabase environment variables are not configured');
+                    }
+
+                    const supabase = createClient(supabaseUrl, supabaseKey);
+
                     // Fetch buyer detail
                     const { data: buyer } = await supabase
                       .from('buyers')
@@ -176,7 +189,7 @@ export default function SellerOrdersPage() {
                     const { data: orderDetail } = await supabase
                       .from('orders')
                       .select('tracking_code, status')
-                      .eq('user_id', order.userId)
+                      .eq('buyer_id', order.userId)
                       .eq('product_id', order.productId)
                       .maybeSingle();
                     if (orderDetail?.tracking_code) setTrackingCode(orderDetail.tracking_code as any);
@@ -248,10 +261,19 @@ export default function SellerOrdersPage() {
                     e.preventDefault();
                     if (!selectedOrder) return;
                     try {
+                      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+                      if (!supabaseUrl || !supabaseKey) {
+                        throw new Error('Supabase environment variables are not configured');
+                      }
+
+                      const supabase = createClient(supabaseUrl, supabaseKey);
+
                       const { error: updErr } = await supabase
                         .from('orders')
                         .update({ status: selectedStatus, tracking_code: trackingCode })
-                        .eq('user_id', selectedOrder.userId)
+                        .eq('buyer_id', selectedOrder.userId)
                         .eq('product_id', selectedOrder.productId);
                       if (updErr) throw updErr;
                       setViewOrders(prev => prev.map(o => (o.userId === selectedOrder.userId && o.productId === selectedOrder.productId) ? { ...o, status: selectedStatus } : o));
