@@ -118,6 +118,15 @@ export default function UserInfoPage() {
   const uploadAvatarIfNeeded = async (): Promise<string | null> => {
     if (!avatarFile) return avatarUrl || null;
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       const ext = avatarFile.name.split('.').pop();
       const filePath = `profiles/${Date.now()}-avatar.${ext}`;
       const { error: uploadError } = await supabase.storage
@@ -137,6 +146,15 @@ export default function UserInfoPage() {
     setError('');
     setSuccess('');
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('کاربر یافت نشد');
 
@@ -190,6 +208,15 @@ export default function UserInfoPage() {
     setError('');
     setSuccess('');
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       if (!mobile) throw new Error('شماره موبایل را وارد کنید');
       // Trigger Supabase phone change OTP
       const { error: updErr } = await supabase.auth.updateUser({ phone: mobile });
@@ -206,6 +233,15 @@ export default function UserInfoPage() {
     setError('');
     setSuccess('');
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       if (!mobile || !phoneOtp) throw new Error('شماره و کد تایید را وارد کنید');
       const { error: verifyErr } = await supabase.auth.verifyOtp({
         phone: mobile,
@@ -242,6 +278,15 @@ export default function UserInfoPage() {
     setError('');
     setSuccess('');
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       if (!emailInput) throw new Error('ایمیل را وارد کنید');
       if (emailInput === authEmail) {
         setSuccess('ایمیل تغییری نکرد.');
@@ -261,6 +306,15 @@ export default function UserInfoPage() {
     setError('');
     setSuccess('');
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase environment variables are not configured');
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
       if (!newPassword || newPassword.length < 6) throw new Error('رمز عبور جدید حداقل ۶ کاراکتر باشد');
       if (newPassword !== confirmNewPassword) throw new Error('تکرار رمز عبور جدید مطابقت ندارد');
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
