@@ -87,8 +87,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-gray-100/50 font-sans">
       {/* Loading Overlay */}
       {isNavigating && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 flex items-center gap-3">
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/80 backdrop-blur-md rounded-lg p-6 flex items-center gap-3 shadow-lg border border-white/20">
             <LoadingSpinnerIcon className="h-6 w-6 text-purple-600" />
             <span className="text-gray-700">در حال بارگذاری...</span>
           </div>

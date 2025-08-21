@@ -32,17 +32,25 @@ export default function RegisterPage() {
       
       const supabase = createClient(supabaseUrl, supabaseKey);
       
-      // Step 1: Register user in Supabase Auth (without email confirmation)
+      // Step 1: Register user in Supabase Auth (with email confirmation)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { role },
+          emailRedirectTo: `${window.location.origin}/auth/login?confirmed=true`,
         },
       });
       
       if (signUpError) {
-        setError(signUpError.message);
+        // Check if it's a duplicate email error from Supabase Auth
+        if (signUpError.message.includes('User already registered') || 
+            signUpError.message.includes('already registered') ||
+            signUpError.message.includes('duplicate')) {
+          setError('این ایمیل قبلا ثبت نام کرده است');
+        } else {
+          setError(signUpError.message);
+        }
         setLoading(false);
         return;
       }
@@ -51,6 +59,12 @@ export default function RegisterPage() {
         setError('خطا در ایجاد حساب کاربری');
         setLoading(false);
         return;
+      }
+
+      // Check if user needs email confirmation
+      if (data.user && !data.user.email_confirmed_at) {
+        // User created but email not confirmed - this is expected
+        console.log('User created, email confirmation required');
       }
 
       // Step 2: Insert basic user data into users table
@@ -64,7 +78,13 @@ export default function RegisterPage() {
       ]);
 
       if (userError) {
-        setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس users با خطا مواجه شد: ' + userError.message);
+        // Check if it's a duplicate key constraint error
+        if (userError.message.includes('duplicate key value violates unique constraint "users_user_id_key"') || 
+            userError.message.includes('duplicate key value violates unique constraint "users_email_key"')) {
+          setError('این ایمیل قبلا ثبت نام کرده است');
+        } else {
+          setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس users با خطا مواجه شد: ' + userError.message);
+        }
         setLoading(false);
         return;
       }
@@ -78,7 +98,12 @@ export default function RegisterPage() {
         ]);
 
         if (buyerError) {
-          setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس buyers با خطا مواجه شد: ' + buyerError.message);
+          // Check if it's a duplicate key constraint error
+          if (buyerError.message.includes('duplicate key value violates unique constraint "buyers_user_id_key"')) {
+            setError('این ایمیل قبلا ثبت نام کرده است');
+          } else {
+            setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس buyers با خطا مواجه شد: ' + buyerError.message);
+          }
           setLoading(false);
           return;
         }
@@ -90,39 +115,23 @@ export default function RegisterPage() {
         ]);
 
         if (sellerError) {
-          setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس sellers با خطا مواجه شد: ' + sellerError.message);
+          // Check if it's a duplicate key constraint error
+          if (sellerError.message.includes('duplicate key value violates unique constraint "sellers_user_id_key"')) {
+            setError('این ایمیل قبلا ثبت نام کرده است');
+          } else {
+            setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس sellers با خطا مواجه شد: ' + sellerError.message);
+          }
           setLoading(false);
           return;
         }
       }
 
-      // Step 4: Send custom confirmation email
-      try {
-        const response = await fetch('/api/auth/confirm', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email,
-            role: role
-          }),
-        });
-
-        const emailData = await response.json();
-
-        if (response.ok) {
-          setSuccess('حساب کاربری با موفقیت ایجاد شد! لطفاً ایمیل خود را تایید کنید.');
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            navigateWithLoading('/auth/login');
-          }, 3000);
-        } else {
-          setError('ثبت نام انجام شد اما ارسال ایمیل تایید با خطا مواجه شد: ' + (emailData.error || 'خطای نامشخص'));
-        }
-      } catch (emailError) {
-        setError('ثبت نام انجام شد اما ارسال ایمیل تایید با خطا مواجه شد');
-      }
+      // Step 4: Show success message (Supabase handles email confirmation automatically)
+      setSuccess('حساب کاربری با موفقیت ایجاد شد! لطفاً ایمیل خود را تایید کنید.');
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        navigateWithLoading('/auth/login');
+      }, 3000);
       
     } catch (err: any) {
       setError('خطا در ثبت نام: ' + (err.message || 'خطای نامشخص'));

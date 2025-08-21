@@ -28,7 +28,8 @@ export default function ShopsPage() {
         setError('');
         const { data, error } = await supabase
           .from('sellers')
-          .select('id, user_id, name, description, profile_image');
+          .select('id, user_id, name, description, profile_image')
+          .eq('is_verified', true);
         if (error) throw error;
         setShops(data || []);
       } catch (err: any) {

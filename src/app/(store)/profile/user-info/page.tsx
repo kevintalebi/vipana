@@ -258,9 +258,18 @@ export default function UserInfoPage() {
           .eq('user_id', user.id)
           .limit(1);
         if (existingRows && existingRows.length > 0) {
-          await supabase.from('buyers').update({ mobile }).eq('user_id', user.id);
+          const { error: updErr } = await supabase.from('buyers').update({ mobile }).eq('user_id', user.id);
+          if (updErr) throw updErr;
         } else {
-          await supabase.from('buyers').insert([{ user_id: user.id, email: user.email || null, mobile }]);
+          const { error: insErr } = await supabase.from('buyers').insert([{ user_id: user.id, email: user.email || null, mobile }]);
+          if (insErr) {
+            // Check if it's a duplicate key constraint error
+            if (insErr.message.includes('duplicate key value violates unique constraint "buyers_user_id_key"')) {
+              throw new Error('این کاربر قبلاً در سیستم ثبت شده است');
+            } else {
+              throw insErr;
+            }
+          }
         }
       }
       setSuccess('شماره موبایل با موفقیت تایید شد.');

@@ -130,12 +130,12 @@ export default function SellerReportsPage() {
       }
 
       // Calculate total sales from ALL orders
-      const totalSales = orderList.reduce((sum, order) => {
+      const totalSales = orderList.length > 0 ? orderList.reduce((sum, order) => {
         const product = allProducts.find(p => p.id === order.product_id || p.id === Number(order.product_id));
         const productPrice = product?.price || 0;
         console.log(`Order ${order.id}: Product ${order.product_id}, Product Name: ${product?.name || 'NOT FOUND'}, Price: ${productPrice}, Status: ${order.status}, Seller: ${order.seller_id}, Buyer: ${order.buyer_id}`);
         return sum + productPrice;
-      }, 0);
+      }, 0) : 0;
 
       console.log('Total sales calculated:', totalSales);
 
@@ -148,9 +148,9 @@ export default function SellerReportsPage() {
         return { name: product.name, sales };
       });
       
-      const bestSellingProduct = productSales.reduce((best, current) => 
+      const bestSellingProduct = productSales.length > 0 ? productSales.reduce((best, current) => 
         current.sales > best.sales ? current : best
-      );
+      ) : { name: 'هیچ محصولی', sales: 0 };
 
       console.log('Best selling product:', bestSellingProduct);
 
@@ -191,10 +191,10 @@ export default function SellerReportsPage() {
                orderDate.getFullYear() === date.getFullYear();
       });
 
-      const monthSales = monthOrders.reduce((sum, order) => {
+      const monthSales = monthOrders.length > 0 ? monthOrders.reduce((sum, order) => {
         const product = products.find(p => p.id === order.product_id || p.id === Number(order.product_id));
         return sum + (product?.price || 0);
-      }, 0);
+      }, 0) : 0;
 
       months.push({ month: monthName, amount: monthSales });
     }

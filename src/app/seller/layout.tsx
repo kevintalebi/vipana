@@ -19,6 +19,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   const { navigateWithLoading } = useNavigationWithLoading();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -68,21 +69,59 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
     };
 
     checkAuth();
-  }, [navigateWithLoading]);
+  }, []); // Remove navigateWithLoading from dependencies
 
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true);
     try {
+      console.log('Starting logout process...');
+      
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        await supabase.auth.signOut();
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Supabase environment variables are not configured');
+        await navigateWithLoading('/');
+        return;
       }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Sign out from Supabase Auth
+      const { error: signOutError } = await supabase.auth.signOut();
+      
+      if (signOutError) {
+        console.error('Supabase sign out error:', signOutError);
+        // Continue with logout even if Supabase sign out fails
+      } else {
+        console.log('Successfully signed out from Supabase');
+      }
+      
+      // Clear any local storage or session data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('supabase.auth.token');
+        sessionStorage.clear();
+      }
+      
+      console.log('Redirecting to home page...');
       await navigateWithLoading('/');
+      
     } catch (error) {
       console.error('Logout error:', error);
-      await navigateWithLoading('/');
+      // Even if there's an error, try to redirect to home
+      try {
+        await navigateWithLoading('/');
+      } catch (redirectError) {
+        console.error('Redirect error:', redirectError);
+        // Fallback: force page reload
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -90,8 +129,8 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
     ...sellerLinks,
     { 
       href: '#', 
-      label: 'خروج', 
-      icon: <LogoutIcon />,
+      label: isLoggingOut ? 'در حال خروج...' : 'خروج', 
+      icon: isLoggingOut ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : <LogoutIcon />,
       onClick: handleLogout
     }
   ];

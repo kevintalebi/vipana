@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import Head from 'next/head';
 import { useParams } from 'next/navigation';
 import { useCallback } from 'react';
 import LoginPromptModal from '../../../components/LoginPromptModal';
@@ -61,6 +60,9 @@ export default function ShopDetailPage() {
   const [followersCount, setFollowersCount] = useState<number>(0);
 
   useEffect(() => {
+    // Set loading title
+    document.title = 'در حال بارگذاری فروشگاه | ویپانا بزرگترین مرکز خرید ایران';
+    
     const fetchShop = async () => {
       setLoading(true);
       setError('');
@@ -73,6 +75,10 @@ export default function ShopDetailPage() {
           .single();
         if (error || !data) throw error || new Error('Shop not found');
         setShop(data);
+        
+        // Update page title with shop name
+        document.title = `${data.name} | ویپانا بزرگترین مرکز خرید ایران`;
+        
         console.log('Shop data:', data);
         console.log('Shop user_id:', data.user_id);
         console.log('Shop id:', data.id);
@@ -165,6 +171,7 @@ export default function ShopDetailPage() {
         setRecentPosts(postsData || []);
       } catch (err: any) {
         setError(err.message || 'خطا در دریافت اطلاعات فروشگاه');
+        document.title = 'فروشگاه یافت نشد | ویپانا بزرگترین مرکز خرید ایران';
       } finally {
         setLoading(false);
       }
@@ -395,12 +402,7 @@ export default function ShopDetailPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>{shop.name}</title>
-        <meta name="description" content={shop.description || ''} />
-      </Head>
-      <main className="min-h-screen bg-gray-50/50">
+    <main className="min-h-screen bg-gray-50/50">
         <div className="max-w mx-auto p-4 sm:p-6">
           <div className="bg-white rounded-3xl shadow-2xl p-10 mb-8 flex flex-col items-center max-w mx-auto border border-gray-100">
             {/* پروفایل با حلقه گرادینت */}
@@ -671,6 +673,5 @@ export default function ShopDetailPage() {
           />
         </div>
       </main>
-    </>
   );
 } 

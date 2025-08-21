@@ -39,6 +39,9 @@ export default function ProductDetailPage() {
   const [showAddedModal, setShowAddedModal] = useState(false);
 
   useEffect(() => {
+    // Set loading title
+    document.title = 'در حال بارگذاری محصول | ویپانا بزرگترین مرکز خرید ایران';
+    
     const fetchData = async () => {
       try {
         // Create Supabase client
@@ -64,6 +67,10 @@ export default function ProductDetailPage() {
           .single();
         if (productError || !productData) throw new Error('محصول یافت نشد');
         setProduct(productData);
+        
+        // Update page title with product name
+        document.title = `${productData.name} | ویپانا بزرگترین مرکز خرید ایران`;
+        
         // Fetch shop
         const { data: shopData, error: shopError } = await supabase
           .from('sellers')
@@ -83,6 +90,7 @@ export default function ProductDetailPage() {
         setMainImage(productData.main_image || (galleryImages[0] || null));
       } catch (err: any) {
         setError(err.message || 'خطا در دریافت اطلاعات محصول');
+        document.title = 'محصول یافت نشد | ویپانا بزرگترین مرکز خرید ایران';
       } finally {
         setLoading(false);
       }

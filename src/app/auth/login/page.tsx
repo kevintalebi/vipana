@@ -7,11 +7,12 @@ import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const initialRole = searchParams?.get('role') || 'buyer';
+  const confirmed = searchParams?.get('confirmed') === 'true';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState(confirmed ? 'ایمیل شما با موفقیت تایید شد! حالا می‌توانید وارد شوید.' : '');
   const [resendingEmail, setResendingEmail] = useState(false);
   const { navigateWithLoading } = useNavigationWithLoading();
 
@@ -44,8 +45,16 @@ function LoginPageContent() {
         // Handle email not confirmed error specifically
         if (signInError.message.includes('Email not confirmed') || signInError.message.includes('email')) {
           setError('ایمیل شما تایید نشده است. لطفاً ایمیل خود را تایید کنید یا دوباره ارسال کنید.');
+        } else if (signInError.message.includes('Invalid login credentials')) {
+          setError('ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.');
+        } else if (signInError.message.includes('Invalid email or password')) {
+          setError('ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.');
+        } else if (signInError.message.includes('User not found')) {
+          setError('کاربری با این ایمیل یافت نشد.');
+        } else if (signInError.message.includes('Too many requests')) {
+          setError('تعداد درخواست‌ها بیش از حد مجاز است. لطفاً کمی صبر کنید و دوباره تلاش کنید.');
         } else {
-          setError(signInError.message);
+          setError('خطا در ورود: ' + signInError.message);
         }
         setLoading(false);
         return;
@@ -58,25 +67,91 @@ function LoginPageContent() {
       }
 
       // Step 2: Get user role from users table
-      const { data: userData, error: userError } = await supabase
+      console.log('Looking for user in users table with ID:', data.user.id);
+      console.log('User email:', data.user.email);
+      
+      // First try to find by user_id
+      let { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('user_id', data.user.id)
         .single();
         
+      console.log('User data from users table (by user_id):', userData);
+      console.log('User error from users table (by user_id):', userError);
+      
+      // If not found by user_id, try by email
       if (userError || !userData) {
-        setError('ورود موفق بود اما نقش کاربر یافت نشد.');
-        setLoading(false);
+        console.log('User not found by user_id, trying by email...');
+        const { data: userDataByEmail, error: userErrorByEmail } = await supabase
+          .from('users')
+          .select('role')
+          .eq('email', data.user.email)
+          .single();
+          
+        console.log('User data from users table (by email):', userDataByEmail);
+        console.log('User error from users table (by email):', userErrorByEmail);
+        
+        if (userDataByEmail && !userErrorByEmail) {
+          userData = userDataByEmail;
+          userError = null;
+        }
+      }
+        
+      if (userError || !userData) {
+        // User exists in Auth but not in users table - try to create the missing record
+        console.log('User not found in users table, attempting to create record');
+        
+        // Get role from user metadata (stored during registration)
+        console.log('User metadata:', data.user.user_metadata);
+        const userRole = data.user.user_metadata?.role || 'buyer';
+        console.log('Using role:', userRole);
+        
+        // Try to insert the missing user record
+        const { error: insertError } = await supabase.from('users').insert([
+          {
+            user_id: data.user.id,
+            email: data.user.email,
+            role: userRole
+          }
+        ]);
+        
+                 if (insertError) {
+           console.error('Failed to create user record:', insertError);
+           // If we can't create the record, still allow login with default role
+           console.log('Using default role for login');
+           await navigateWithLoading('/products');
+           return;
+         }
+        
+        // Also try to create the role-specific record (don't fail if this doesn't work)
+        try {
+          if (userRole === 'buyer') {
+            await supabase.from('buyers').insert([{ user_id: data.user.id }]);
+          } else if (userRole === 'seller') {
+            await supabase.from('sellers').insert([{ user_id: data.user.id }]);
+          }
+        } catch (roleError) {
+          console.error('Failed to create role-specific record:', roleError);
+          // Continue anyway
+        }
+        
+        // Use the role from metadata for redirection (only buyer or seller)
+        if (userRole === 'seller') {
+          await navigateWithLoading('/seller/reports');
+        } else {
+          // Default to buyer role and redirect to products
+          await navigateWithLoading('/products');
+        }
         return;
       }
 
-      // Step 3: Redirect based on user role
-      if (userData.role === 'admin') {
-        await navigateWithLoading('/admin');
-      } else if (userData.role === 'seller') {
+      // Step 3: Redirect based on user role (only buyer or seller)
+      if (userData.role === 'seller') {
         await navigateWithLoading('/seller/reports');
       } else {
-        await navigateWithLoading('/');
+        // Default to buyer role and redirect to products
+        await navigateWithLoading('/products');
       }
       
     } catch (err: any) {
@@ -117,29 +192,24 @@ function LoginPageContent() {
         .single();
 
       if (userError || !userData) {
-        setError('کاربری با این ایمیل یافت نشد');
-        setResendingEmail(false);
-        return;
+        // User not found in users table, but we'll still try to resend confirmation
+        // The user might exist in Auth but not in our users table
+        console.log('User not found in users table, but attempting to resend confirmation');
       }
 
-      // Send custom confirmation email
-      const response = await fetch('/api/auth/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Use Supabase's built-in resend confirmation
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/login?confirmed=true`,
         },
-        body: JSON.stringify({
-          email: email,
-          role: userData.role
-        }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('ایمیل تایید دوباره ارسال شد. لطفاً صندوق ورودی خود را بررسی کنید.');
+      if (resendError) {
+        setError('خطا در ارسال مجدد ایمیل: ' + resendError.message);
       } else {
-        setError('خطا در ارسال مجدد ایمیل: ' + (data.error || 'خطای نامشخص'));
+        setSuccess('ایمیل تایید دوباره ارسال شد. لطفاً صندوق ورودی خود را بررسی کنید.');
       }
     } catch (err: any) {
       setError('خطا در ارسال مجدد ایمیل: ' + (err.message || 'خطای نامشخص'));
@@ -186,20 +256,11 @@ function LoginPageContent() {
           </button>
         </form>
         
-        {error && (
-          <div className="mt-4">
-            <p className="text-red-600 text-center mb-2">{error}</p>
-            {error.includes('تایید نشده') && (
-              <button
-                onClick={handleResendConfirmation}
-                disabled={resendingEmail}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition disabled:opacity-50"
-              >
-                {resendingEmail ? 'در حال ارسال...' : 'ارسال مجدد ایمیل تایید'}
-              </button>
-            )}
-          </div>
-        )}
+                 {error && (
+           <div className="mt-4">
+             <p className="text-red-600 text-center mb-2">{error}</p>
+           </div>
+         )}
         
         {success && <p className="text-green-600 text-center mt-4">{success}</p>}
         

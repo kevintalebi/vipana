@@ -29,22 +29,30 @@ export async function POST(request: NextRequest) {
     });
 
     // Import email service dynamically to avoid server-side issues
-    const { sendConfirmationEmail } = await import('../../../services/emailService');
-    
-    const emailSent = await sendConfirmationEmail({
-      email,
-      confirmationToken: token,
-      role
-    });
+    try {
+      const { sendConfirmationEmail } = await import('../../../services/emailService');
+      
+      const emailSent = await sendConfirmationEmail({
+        email,
+        confirmationToken: token,
+        role
+      });
 
-    if (emailSent) {
+      if (emailSent) {
+        return NextResponse.json(
+          { message: 'ایمیل تایید ارسال شد' },
+          { status: 200 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: 'خطای پیکربندی SMTP - لطفاً تنظیمات ایمیل را بررسی کنید' },
+          { status: 500 }
+        );
+      }
+    } catch (importError) {
+      console.error('Error importing email service:', importError);
       return NextResponse.json(
-        { message: 'ایمیل تایید ارسال شد' },
-        { status: 200 }
-      );
-    } else {
-      return NextResponse.json(
-        { error: 'خطا در ارسال ایمیل تایید' },
+        { error: 'خطای پیکربندی SMTP - سرویس ایمیل در دسترس نیست' },
         { status: 500 }
       );
     }

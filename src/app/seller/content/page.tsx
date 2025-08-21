@@ -74,15 +74,37 @@ export default function ContentManagementPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   
-  // Test Supabase connection on component mount
+  // AI Credits State
+  const [aiCredits, setAiCredits] = useState<number>(0);
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  
+  // Test Supabase connection and fetch AI credits on component mount
   useEffect(() => {
     const testConnection = async () => {
       try {
         const { data, error } = await supabase.auth.getUser();
         console.log('Supabase connection test:', error ? 'Failed' : 'Success');
         if (error) console.error('Connection error:', error);
+        
+        // Fetch AI credits if user is authenticated
+        if (data.user) {
+          const { data: sellerData, error: sellerError } = await supabase
+            .from('sellers')
+            .select('ai_credits')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          if (sellerError) {
+            console.error('Error fetching AI credits:', sellerError);
+            setAiCredits(0);
+          } else {
+            setAiCredits(sellerData?.ai_credits || 0);
+          }
+        }
+        setCreditsLoading(false);
       } catch (err) {
         console.error('Supabase connection test failed:', err);
+        setCreditsLoading(false);
       }
     };
     testConnection();
@@ -1079,6 +1101,27 @@ export default function ContentManagementPage() {
         {activeTab === 'factory' && (
           <div className="max-w-2xl mx-auto">
             <h2 className="text-xl font-bold mb-6 text-purple-700 text-center">تولید محتوا با هوش مصنوعی</h2>
+            
+            {/* AI Credits Display */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center justify-center gap-3">
+                                 <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-full">
+                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+                   </svg>
+                 </div>
+                                 <div className="text-center">
+                   <p className="text-sm text-purple-600 font-medium">اعتبار باقی مانده</p>
+                  {creditsLoading ? (
+                    <div className="flex items-center justify-center mt-1">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-bold text-purple-700">{aiCredits.toLocaleString()} سکه</p>
+                  )}
+                </div>
+              </div>
+            </div>
             
             <div className="space-y-6">
               <div>

@@ -708,48 +708,50 @@ export default function SellerProfilePage() {
         <h1 className="text-2xl font-bold text-purple-700 mb-6">تنظیمات فروشگاه</h1>
 
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-4" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`${
-                activeTab === 'profile'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              پروفایل فروشگاه
-            </button>
-            <button
-              onClick={() => setActiveTab('bank')}
-              className={`${
-                activeTab === 'bank'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              اطلاعات بانکی
-            </button>
-            <button
-              onClick={() => setActiveTab('verification')}
-              className={`${
-                activeTab === 'verification'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              احراز هویت
-            </button>
-            <button
-              onClick={() => setActiveTab('social')}
-              className={`${
-                activeTab === 'social'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              شبکه‌های اجتماعی
-            </button>
-          </nav>
+          <div className="overflow-x-auto overflow-y-hidden">
+            <nav className="-mb-px flex space-x-4 min-w-max" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`${
+                  activeTab === 'profile'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                پروفایل فروشگاه
+              </button>
+              <button
+                onClick={() => setActiveTab('bank')}
+                className={`${
+                  activeTab === 'bank'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                اطلاعات بانکی
+              </button>
+              <button
+                onClick={() => setActiveTab('verification')}
+                className={`${
+                  activeTab === 'verification'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                احراز هویت
+              </button>
+              <button
+                onClick={() => setActiveTab('social')}
+                className={`${
+                  activeTab === 'social'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                شبکه‌های اجتماعی
+              </button>
+            </nav>
+          </div>
         </div>
 
         <div className="mt-8">
