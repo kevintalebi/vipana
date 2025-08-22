@@ -518,6 +518,40 @@ export default function ShopDetailPage() {
               </div>
             </div>
           )}
+          {products.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">محصولات فروشگاه</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {products.map(product => (
+                  <div key={product.id} className="bg-white rounded-2xl shadow-md p-4 flex flex-col items-center">
+                    <Link href={`/products/${product.id}`} className="w-full flex flex-col items-center hover:shadow-lg transition mb-2">
+                      <div className="w-40 h-40 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center mb-4">
+                        {product.main_image ? (
+                          <Image
+                            src={product.main_image}
+                            alt={product.name}
+                            width={160}
+                            height={160}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">?</div>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-lg text-center text-gray-800 mb-2">{product.name}</h3>
+                      <p className="text-green-600 font-bold text-center mb-4">{product.price?.toLocaleString()} تومان</p>
+                    </Link>
+                    <button
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg transition-colors"
+                      onClick={() => addToCart(product)}
+                    >
+                      افزودن به سبد خرید
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {recentPosts.length > 0 && (
             <div className="mb-8">
               <div className="flex justify-between items-center mb-6">
@@ -580,40 +614,6 @@ export default function ShopDetailPage() {
                     </Link>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-          {products.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">محصولات فروشگاه</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {products.map(product => (
-                  <div key={product.id} className="bg-white rounded-2xl shadow-md p-4 flex flex-col items-center">
-                    <Link href={`/products/${product.id}`} className="w-full flex flex-col items-center hover:shadow-lg transition mb-2">
-                      <div className="w-40 h-40 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center mb-4">
-                        {product.main_image ? (
-                          <Image
-                            src={product.main_image}
-                            alt={product.name}
-                            width={160}
-                            height={160}
-                            className="object-cover w-full h-full"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">?</div>
-                        )}
-                      </div>
-                      <h3 className="font-bold text-lg text-center text-gray-800 mb-2">{product.name}</h3>
-                      <p className="text-green-600 font-bold text-center mb-4">{product.price?.toLocaleString()} تومان</p>
-                    </Link>
-                    <button
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg transition-colors"
-                      onClick={() => addToCart(product)}
-                    >
-                      افزودن به سبد خرید
-                    </button>
-                  </div>
-                ))}
               </div>
             </div>
           )}

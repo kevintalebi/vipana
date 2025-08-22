@@ -4,6 +4,58 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 
+// Modal Component for showing messages
+const MessageModal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  message, 
+  type 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  message: string; 
+  type: 'error' | 'success' 
+}) => {
+  if (!isOpen) return null;
+  
+  const bgColor = type === 'error' ? 'bg-red-50' : 'bg-green-50';
+  const borderColor = type === 'error' ? 'border-red-200' : 'border-green-200';
+  const iconColor = type === 'error' ? 'text-red-600' : 'text-green-600';
+  const titleColor = type === 'error' ? 'text-red-800' : 'text-green-800';
+  const messageColor = type === 'error' ? 'text-red-700' : 'text-green-700';
+  const buttonColor = type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700';
+  
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className={`bg-white rounded-lg shadow-xl max-w-md w-full p-6 border ${borderColor} ${bgColor}`} onClick={e => e.stopPropagation()}>
+        <div className="flex flex-col items-center text-center">
+          <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${type === 'error' ? 'bg-red-100' : 'bg-green-100'} mb-4`}>
+            {type === 'error' ? (
+              <svg className={`h-6 w-6 ${iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className={`h-6 w-6 ${iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+          <h3 className={`text-lg font-bold ${titleColor} mb-2`}>{title}</h3>
+          <p className={`${messageColor} mb-4`}>{message}</p>
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 ${buttonColor} text-white rounded-lg font-semibold transition-colors`}
+          >
+            بستن
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const initialRole = searchParams?.get('role') || 'buyer';
@@ -14,7 +66,26 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(confirmed ? 'ایمیل شما با موفقیت تایید شد! حالا می‌توانید وارد شوید.' : '');
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState<{ title: string; message: string; type: 'error' | 'success' }>({ title: '', message: '', type: 'error' });
   const { navigateWithLoading } = useNavigationWithLoading();
+
+  const showModal = (title: string, message: string, type: 'error' | 'success') => {
+    setModalData({ title, message, type });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setModalData({ title: '', message: '', type: 'error' });
+  };
+
+  // Show success modal on component mount if email was confirmed
+  React.useEffect(() => {
+    if (confirmed) {
+      showModal('تایید ایمیل', 'ایمیل شما با موفقیت تایید شد! حالا می‌توانید وارد شوید.', 'success');
+    }
+  }, [confirmed]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +99,7 @@ function LoginPageContent() {
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseKey) {
-        setError('خطای پیکربندی سرور');
+        showModal('خطای پیکربندی', 'خطای پیکربندی سرور', 'error');
         setLoading(false);
         return;
       }
@@ -44,24 +115,24 @@ function LoginPageContent() {
       if (signInError) {
         // Handle email not confirmed error specifically
         if (signInError.message.includes('Email not confirmed') || signInError.message.includes('email')) {
-          setError('ایمیل شما تایید نشده است. لطفاً ایمیل خود را تایید کنید یا دوباره ارسال کنید.');
+          showModal('خطا در ورود', 'ایمیل شما تایید نشده است. لطفاً ایمیل خود را تایید کنید یا دوباره ارسال کنید.', 'error');
         } else if (signInError.message.includes('Invalid login credentials')) {
-          setError('ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.');
+          showModal('خطا در ورود', 'ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.', 'error');
         } else if (signInError.message.includes('Invalid email or password')) {
-          setError('ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.');
+          showModal('خطا در ورود', 'ایمیل یا رمز عبور اشتباه است. لطفاً دوباره تلاش کنید.', 'error');
         } else if (signInError.message.includes('User not found')) {
-          setError('کاربری با این ایمیل یافت نشد.');
+          showModal('خطا در ورود', 'کاربری با این ایمیل یافت نشد.', 'error');
         } else if (signInError.message.includes('Too many requests')) {
-          setError('تعداد درخواست‌ها بیش از حد مجاز است. لطفاً کمی صبر کنید و دوباره تلاش کنید.');
+          showModal('خطا در ورود', 'تعداد درخواست‌ها بیش از حد مجاز است. لطفاً کمی صبر کنید و دوباره تلاش کنید.', 'error');
         } else {
-          setError('خطا در ورود: ' + signInError.message);
+          showModal('خطا در ورود', 'خطا در ورود: ' + signInError.message, 'error');
         }
         setLoading(false);
         return;
       }
 
       if (!data.user) {
-        setError('کاربر یافت نشد');
+        showModal('خطا در ورود', 'کاربر یافت نشد', 'error');
         setLoading(false);
         return;
       }
@@ -155,7 +226,7 @@ function LoginPageContent() {
       }
       
     } catch (err: any) {
-      setError('خطا در ورود: ' + (err.message || 'خطای نامشخص'));
+      showModal('خطا در ورود', 'خطا در ورود: ' + (err.message || 'خطای نامشخص'), 'error');
     } finally {
       setLoading(false);
     }
@@ -163,7 +234,7 @@ function LoginPageContent() {
 
   const handleResendConfirmation = async () => {
     if (!email) {
-      setError('لطفاً ایمیل خود را وارد کنید');
+      showModal('خطا', 'لطفاً ایمیل خود را وارد کنید', 'error');
       return;
     }
 
@@ -177,7 +248,7 @@ function LoginPageContent() {
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseKey) {
-        setError('خطای پیکربندی سرور');
+        showModal('خطای پیکربندی', 'خطای پیکربندی سرور', 'error');
         setResendingEmail(false);
         return;
       }
@@ -207,12 +278,12 @@ function LoginPageContent() {
       });
 
       if (resendError) {
-        setError('خطا در ارسال مجدد ایمیل: ' + resendError.message);
+        showModal('خطا در ارسال مجدد', 'خطا در ارسال مجدد ایمیل: ' + resendError.message, 'error');
       } else {
-        setSuccess('ایمیل تایید دوباره ارسال شد. لطفاً صندوق ورودی خود را بررسی کنید.');
+        showModal('ارسال موفق', 'ایمیل تایید دوباره ارسال شد. لطفاً صندوق ورودی خود را بررسی کنید.', 'success');
       }
     } catch (err: any) {
-      setError('خطا در ارسال مجدد ایمیل: ' + (err.message || 'خطای نامشخص'));
+      showModal('خطا در ارسال مجدد', 'خطا در ارسال مجدد ایمیل: ' + (err.message || 'خطای نامشخص'), 'error');
     } finally {
       setResendingEmail(false);
     }
@@ -256,19 +327,19 @@ function LoginPageContent() {
           </button>
         </form>
         
-                 {error && (
-           <div className="mt-4">
-             <p className="text-red-600 text-center mb-2">{error}</p>
-           </div>
-         )}
-        
-        {success && <p className="text-green-600 text-center mt-4">{success}</p>}
-        
         <p className="text-center text-gray-600 mt-6">
           حساب کاربری ندارید؟
           <a href="/auth/register" className="text-purple-600 hover:underline font-semibold"> ثبت‌نام کنید</a>
         </p>
       </div>
+      
+      <MessageModal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        title={modalData.title}
+        message={modalData.message}
+        type={modalData.type}
+      />
     </main>
   );
 }

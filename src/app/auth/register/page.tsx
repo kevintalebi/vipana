@@ -3,6 +3,58 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigationWithLoading } from '../../hooks/useNavigationWithLoading';
 
+// Modal Component for showing messages
+const MessageModal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  message, 
+  type 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  message: string; 
+  type: 'error' | 'success' 
+}) => {
+  if (!isOpen) return null;
+  
+  const bgColor = type === 'error' ? 'bg-red-50' : 'bg-green-50';
+  const borderColor = type === 'error' ? 'border-red-200' : 'border-green-200';
+  const iconColor = type === 'error' ? 'text-red-600' : 'text-green-600';
+  const titleColor = type === 'error' ? 'text-red-800' : 'text-green-800';
+  const messageColor = type === 'error' ? 'text-red-700' : 'text-green-700';
+  const buttonColor = type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700';
+  
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className={`bg-white rounded-lg shadow-xl max-w-md w-full p-6 border ${borderColor} ${bgColor}`} onClick={e => e.stopPropagation()}>
+        <div className="flex flex-col items-center text-center">
+          <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${type === 'error' ? 'bg-red-100' : 'bg-green-100'} mb-4`}>
+            {type === 'error' ? (
+              <svg className={`h-6 w-6 ${iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className={`h-6 w-6 ${iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+          <h3 className={`text-lg font-bold ${titleColor} mb-2`}>{title}</h3>
+          <p className={`${messageColor} mb-4`}>{message}</p>
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 ${buttonColor} text-white rounded-lg font-semibold transition-colors`}
+          >
+            بستن
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,7 +63,19 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState<{ title: string; message: string; type: 'error' | 'success' }>({ title: '', message: '', type: 'error' });
   const { navigateWithLoading } = useNavigationWithLoading();
+
+  const showModal = (title: string, message: string, type: 'error' | 'success') => {
+    setModalData({ title, message, type });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setModalData({ title: '', message: '', type: 'error' });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +89,7 @@ export default function RegisterPage() {
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseKey) {
-        setError('خطای پیکربندی سرور');
+        showModal('خطای پیکربندی', 'خطای پیکربندی سرور', 'error');
         setLoading(false);
         return;
       }
@@ -47,16 +111,16 @@ export default function RegisterPage() {
         if (signUpError.message.includes('User already registered') || 
             signUpError.message.includes('already registered') ||
             signUpError.message.includes('duplicate')) {
-          setError('این ایمیل قبلا ثبت نام کرده است');
+          showModal('خطا در ثبت نام', 'این ایمیل قبلا ثبت نام کرده است', 'error');
         } else {
-          setError(signUpError.message);
+          showModal('خطا در ثبت نام', signUpError.message, 'error');
         }
         setLoading(false);
         return;
       }
 
       if (!data.user) {
-        setError('خطا در ایجاد حساب کاربری');
+        showModal('خطا در ثبت نام', 'خطا در ایجاد حساب کاربری', 'error');
         setLoading(false);
         return;
       }
@@ -81,9 +145,9 @@ export default function RegisterPage() {
         // Check if it's a duplicate key constraint error
         if (userError.message.includes('duplicate key value violates unique constraint "users_user_id_key"') || 
             userError.message.includes('duplicate key value violates unique constraint "users_email_key"')) {
-          setError('این ایمیل قبلا ثبت نام کرده است');
+          showModal('خطا در ثبت نام', 'این ایمیل قبلا ثبت نام کرده است', 'error');
         } else {
-          setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس users با خطا مواجه شد: ' + userError.message);
+          showModal('خطا در ثبت نام', 'ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس users با خطا مواجه شد: ' + userError.message, 'error');
         }
         setLoading(false);
         return;
@@ -100,9 +164,9 @@ export default function RegisterPage() {
         if (buyerError) {
           // Check if it's a duplicate key constraint error
           if (buyerError.message.includes('duplicate key value violates unique constraint "buyers_user_id_key"')) {
-            setError('این ایمیل قبلا ثبت نام کرده است');
+            showModal('خطا در ثبت نام', 'این ایمیل قبلا ثبت نام کرده است', 'error');
           } else {
-            setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس buyers با خطا مواجه شد: ' + buyerError.message);
+            showModal('خطا در ثبت نام', 'ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس buyers با خطا مواجه شد: ' + buyerError.message, 'error');
           }
           setLoading(false);
           return;
@@ -117,9 +181,9 @@ export default function RegisterPage() {
         if (sellerError) {
           // Check if it's a duplicate key constraint error
           if (sellerError.message.includes('duplicate key value violates unique constraint "sellers_user_id_key"')) {
-            setError('این ایمیل قبلا ثبت نام کرده است');
+            showModal('خطا در ثبت نام', 'این ایمیل قبلا ثبت نام کرده است', 'error');
           } else {
-            setError('ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس sellers با خطا مواجه شد: ' + sellerError.message);
+            showModal('خطا در ثبت نام', 'ثبت نام انجام شد اما ذخیره اطلاعات در دیتابیس sellers با خطا مواجه شد: ' + sellerError.message, 'error');
           }
           setLoading(false);
           return;
@@ -127,14 +191,10 @@ export default function RegisterPage() {
       }
 
       // Step 4: Show success message (Supabase handles email confirmation automatically)
-      setSuccess('حساب کاربری با موفقیت ایجاد شد! لطفاً ایمیل خود را تایید کنید.');
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigateWithLoading('/auth/login');
-      }, 3000);
+      showModal('ثبت نام موفق', 'حساب کاربری با موفقیت ایجاد شد! لطفاً ایمیل خود را تایید کنید.', 'success');
       
     } catch (err: any) {
-      setError('خطا در ثبت نام: ' + (err.message || 'خطای نامشخص'));
+      showModal('خطا در ثبت نام', 'خطا در ثبت نام: ' + (err.message || 'خطای نامشخص'), 'error');
     } finally {
       setLoading(false);
     }
@@ -201,14 +261,19 @@ export default function RegisterPage() {
           </button>
         </form>
         
-        {error && <p className="text-red-600 text-center mt-4">{error}</p>}
-        {success && <p className="text-green-600 text-center mt-4">{success}</p>}
-        
         <p className="text-center text-gray-600 mt-6">
           قبلاً حساب کاربری دارید؟
           <a href="/auth/login" className="text-purple-600 hover:underline font-semibold"> وارد شوید</a>
         </p>
       </div>
+      
+      <MessageModal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        title={modalData.title}
+        message={modalData.message}
+        type={modalData.type}
+      />
     </main>
   );
 } 

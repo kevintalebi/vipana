@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 type OrderRow = {
-  user_id: string;
+  buyer_id: string;
   product_id: number;
   status: string;
 };
@@ -50,8 +50,8 @@ export default function OrdersPage() {
         }
         const { data: orderRows, error: orderErr } = await supabase
           .from('orders')
-          .select('user_id, product_id, status')
-          .eq('user_id', uid);
+          .select('buyer_id, product_id, status')
+          .eq('buyer_id', uid);
         if (orderErr) throw orderErr;
         const orderList = (orderRows || []) as OrderRow[];
         setOrders(orderList);
