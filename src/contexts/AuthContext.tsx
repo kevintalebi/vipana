@@ -131,10 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null)
       setLoading(true)
       
-      const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`
-      console.log('OAuth redirect URL:', redirectUrl)
-      console.log('Environment SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL)
+      // Force production URL if we're not in development
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const productionUrl = 'https://vipana.ir'
+      
+      const redirectUrl = isDevelopment 
+        ? `${window.location.origin}/auth/callback`
+        : `${process.env.NEXT_PUBLIC_SITE_URL || productionUrl}/auth/callback`
+      
+      console.log('=== OAuth Debug Info ===')
+      console.log('Is development:', isDevelopment)
+      console.log('Window hostname:', window.location.hostname)
       console.log('Window origin:', window.location.origin)
+      console.log('Environment SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL)
+      console.log('Final redirect URL:', redirectUrl)
+      console.log('========================')
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -149,12 +160,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       if (error) {
+        console.error('OAuth error:', error)
         setError(error.message)
         setLoading(false)
         return { success: false, error: error.message }
       }
       
-      // If no error, the OAuth flow will redirect
+      // If we reach here, the OAuth flow should have started
+      console.log('OAuth flow initiated successfully')
       return { success: true }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'خطایی در ورود رخ داد'
