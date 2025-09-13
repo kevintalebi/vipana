@@ -11,10 +11,9 @@ function AuthCallbackContent() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Check for error parameters in URL
-        const error = searchParams.get('error')
-        // const errorCode = searchParams.get('error_code')
-        const errorDescription = searchParams.get('error_description')
+        // Check for error parameters in URL (both query params and hash)
+        const error = searchParams.get('error') || new URLSearchParams(window.location.hash.substring(1)).get('error')
+        const errorDescription = searchParams.get('error_description') || new URLSearchParams(window.location.hash.substring(1)).get('error_description')
 
         if (error) {
           // Authentication failed, redirect to login with error
@@ -26,7 +25,7 @@ function AuthCallbackContent() {
           return
         }
 
-        // Handle the OAuth callback
+        // Handle the OAuth callback - try to get session from URL first
         const { data, error: authError } = await supabase.auth.getSession()
         
         if (authError) {
