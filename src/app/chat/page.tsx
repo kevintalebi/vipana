@@ -17,11 +17,33 @@ interface Service {
   id: string;
   name: string;
   type: string;
-  price?: string;
+  price: string;
 }
 
 interface ServicesData {
   [key: string]: Service[];
+}
+
+interface DatabaseService {
+  id: string;
+  type: string;
+  name?: string;
+  title?: string;
+  model_name?: string;
+  model?: string;
+  price?: string;
+  cost?: string;
+  amount?: string;
+  [key: string]: unknown;
+}
+
+interface ErrorDetails {
+  status: number;
+  statusText: string;
+  url: string;
+  error: string;
+  rawText?: string;
+  textError?: string;
 }
 
 export default function ChatPage() {
@@ -119,23 +141,19 @@ export default function ChatPage() {
 
         if (services && services.length > 0) {
           // Group services by type - adapt to whatever columns exist
-          const groupedServices = services.reduce((acc: Record<string, any[]>, service: Record<string, any>) => {
+          const groupedServices = services.reduce((acc: ServicesData, service: DatabaseService) => {
             const type = service.type || 'unknown';
             if (!acc[type]) {
               acc[type] = [];
             }
             
             // Create service object with available fields
-            const serviceObj: Record<string, any> = {
+            const serviceObj: Service = {
               id: service.id || service.id,
-              type: type
+              type: type,
+              name: service.name || service.title || service.model_name || service.model || `Service ${service.id}`,
+              price: service.price || service.cost || service.amount || '0.00'
             };
-            
-            // Add name field - try different possible column names
-            serviceObj.name = service.name || service.title || service.model_name || service.model || `Service ${service.id}`;
-            
-            // Add price field - try different possible column names
-            serviceObj.price = service.price || service.cost || service.amount || '0.00';
             
             console.log('Processed service object:', serviceObj);
             acc[type].push(serviceObj);
@@ -424,7 +442,7 @@ export default function ChatPage() {
           }
         } else {
           console.log('Response is not OK, processing error...');
-          const errorDetails: Record<string, any> = {
+          const errorDetails: ErrorDetails = {
             status: response.status,
             statusText: response.statusText,
             url: response.url,
