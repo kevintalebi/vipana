@@ -267,7 +267,7 @@ export default function ChatPage() {
 
         console.log('Sending data to webhook:', requestData);
         console.log('Using API route: /api/webhook');
-        const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL;
+        const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || 'https://n8n.vipana.ir/webhook/content-handler';
         console.log('Target webhook URL:', webhookUrl);
 
         console.log('Making fetch request to /api/webhook...');
