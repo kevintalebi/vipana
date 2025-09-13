@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
           const firstItem = parsedData[0];
           console.log('API Route - Array response detected, first item:', firstItem);
         }
-      } catch (parseError) {
+      } catch {
         console.log('API Route - Response is not JSON, using raw text');
         parsedData = { content: responseData };
       }

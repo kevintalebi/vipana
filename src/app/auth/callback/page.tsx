@@ -13,7 +13,7 @@ export default function AuthCallback() {
       try {
         // Check for error parameters in URL
         const error = searchParams.get('error')
-        const errorCode = searchParams.get('error_code')
+        // const errorCode = searchParams.get('error_code')
         const errorDescription = searchParams.get('error_description')
 
         if (error) {

@@ -249,7 +249,7 @@ export async function cleanupDuplicateUsers(): Promise<boolean> {
       }
 
       // Group by email and find duplicates
-      const emailGroups = users.reduce((acc: { [email: string]: any[] }, user) => {
+      const emailGroups = users.reduce((acc: { [email: string]: Record<string, any>[] }, user) => {
         if (!acc[user.email]) {
           acc[user.email] = []
         }

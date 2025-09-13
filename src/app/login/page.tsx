@@ -32,8 +32,8 @@ export default function LoginPage() {
       if (!result.success && result.error) {
         setLocalError(result.error);
       }
-    } catch (error: any) {
-      setLocalError(error?.message || 'خطایی در ورود رخ داد');
+    } catch (error: unknown) {
+      setLocalError(error instanceof Error ? error.message : 'خطایی در ورود رخ داد');
     }
   };
 

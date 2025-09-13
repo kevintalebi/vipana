@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Send, Settings, User, MessageSquare, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -118,14 +119,14 @@ export default function ChatPage() {
 
         if (services && services.length > 0) {
           // Group services by type - adapt to whatever columns exist
-          const groupedServices = services.reduce((acc: any, service: any) => {
+          const groupedServices = services.reduce((acc: Record<string, any[]>, service: Record<string, any>) => {
             const type = service.type || 'unknown';
             if (!acc[type]) {
               acc[type] = [];
             }
             
             // Create service object with available fields
-            const serviceObj: any = {
+            const serviceObj: Record<string, any> = {
               id: service.id || service.id,
               type: type
             };
@@ -423,7 +424,7 @@ export default function ChatPage() {
           }
         } else {
           console.log('Response is not OK, processing error...');
-          let errorDetails: any = {
+          const errorDetails: Record<string, any> = {
             status: response.status,
             statusText: response.statusText,
             url: response.url,
@@ -605,9 +606,11 @@ export default function ChatPage() {
                   {userProfile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'کاربر مهمان'}
                 </h3>
               {userProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture ? (
-                <img
+                <Image
                   src={userProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture}
                   alt="User Avatar"
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full border-2 border-white dark:border-gray-500 shadow-sm"
                 />
               ) : (

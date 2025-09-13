@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, LogIn, ArrowLeft } from "lucide-react";
+import { MessageSquare, LogIn } from "lucide-react";
 
 export default function Home() {
   return (

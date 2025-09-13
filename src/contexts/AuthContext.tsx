@@ -146,8 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // If no error, the OAuth flow will redirect
       return { success: true }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'خطایی در ورود رخ داد'
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'خطایی در ورود رخ داد'
       setError(errorMessage)
       setLoading(false)
       console.error('Error signing in with Google:', error)
