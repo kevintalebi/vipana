@@ -25,7 +25,12 @@ function AuthCallbackContent() {
           return
         }
 
-        // Handle the OAuth callback - try to get session from URL first
+        // Handle the OAuth callback
+        console.log('Current URL:', window.location.href)
+        console.log('Hash:', window.location.hash)
+        console.log('Search params:', window.location.search)
+        
+        // Try to get session from URL first
         const { data, error: authError } = await supabase.auth.getSession()
         
         if (authError) {
@@ -36,9 +41,11 @@ function AuthCallbackContent() {
 
         if (data.session) {
           // Authentication successful, redirect to chat
+          console.log('Authentication successful, redirecting to chat')
           router.push('/chat')
         } else {
           // No session found, redirect to login
+          console.log('No session found, redirecting to login')
           router.push('/login?error=' + encodeURIComponent('ورود ناموفق بود'))
         }
       } catch (error) {
