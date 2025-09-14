@@ -321,7 +321,7 @@ export default function ChatPage() {
             
             // Check if webhook response contains a message
             let messageContent = null;
-            let messageType = 'text';
+            let messageType: 'text' | 'image' = 'text';
             let imageUrl = null;
             let updatedTokens = null;
             
