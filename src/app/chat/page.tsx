@@ -11,6 +11,8 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  type?: 'text' | 'image';
+  imageUrl?: string;
 }
 
 interface Service {
@@ -319,10 +321,29 @@ export default function ChatPage() {
             
             // Check if webhook response contains a message
             let messageContent = null;
+            let messageType = 'text';
+            let imageUrl = null;
             let updatedTokens = null;
+            
+            // Helper function to detect if content is an image URL
+            const isImageUrl = (url: string) => {
+              const isImage = url && (
+                url.includes('.png') || 
+                url.includes('.jpg') || 
+                url.includes('.jpeg') || 
+                url.includes('.gif') || 
+                url.includes('.webp') ||
+                url.includes('blob.core.windows.net') ||
+                url.includes('replicate.delivery') ||
+                url.includes('cdn.openai.com')
+              );
+              console.log('isImageUrl check:', { url: url?.substring(0, 100) + '...', isImage });
+              return isImage;
+            };
             
             // Handle API route response format: { success: true, data: "...", parsed: {...}, status: 200 }
             if (responseData && responseData.success && responseData.parsed) {
+              console.log('Using API route response format handler');
               const parsedData = responseData.parsed;
               
               // Handle the new response format: { "235\n": { message: { content: "..." }, tokens: "235\n" } }
@@ -338,6 +359,19 @@ export default function ChatPage() {
                   const data = parsedData[dataKey];
                   if (data.message && data.message.content) {
                     messageContent = data.message.content;
+                    
+                    // Check if the content itself is an image URL
+                    if (isImageUrl(messageContent)) {
+                      messageType = 'image';
+                      imageUrl = messageContent;
+                      messageContent = 'تصویر تولید شده:';
+                    }
+                  }
+                  // Check if this is an image response with separate fields
+                  if (data.type === 'image' && data.image_url) {
+                    messageType = 'image';
+                    imageUrl = data.image_url;
+                    messageContent = 'تصویر تولید شده:';
                   }
                   if (data.tokens !== undefined) {
                     // Convert tokens to number (remove \n if present)
@@ -348,6 +382,7 @@ export default function ChatPage() {
             }
             // Handle direct response format: { "235\n": { message: { content: "..." }, tokens: "235\n" } }
             else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
+              console.log('Using direct response format handler');
               // Find the first key that contains the data
               const dataKey = Object.keys(responseData).find(key => 
                 responseData[key] && 
@@ -359,6 +394,19 @@ export default function ChatPage() {
                 const data = responseData[dataKey];
                 if (data.message && data.message.content) {
                   messageContent = data.message.content;
+                  
+                  // Check if the content itself is an image URL
+                  if (isImageUrl(messageContent)) {
+                    messageType = 'image';
+                    imageUrl = messageContent;
+                    messageContent = 'تصویر تولید شده:';
+                  }
+                }
+                // Check if this is an image response with separate fields
+                if (data.type === 'image' && data.image_url) {
+                  messageType = 'image';
+                  imageUrl = data.image_url;
+                  messageContent = 'تصویر تولید شده:';
                 }
                 if (data.tokens !== undefined) {
                   // Convert tokens to number (remove \n if present)
@@ -368,9 +416,23 @@ export default function ChatPage() {
             }
             // Handle array response format
             else if (Array.isArray(responseData) && responseData.length > 0) {
+              console.log('Using array response format handler');
               const firstItem = responseData[0];
               if (firstItem.message && firstItem.message.content) {
                 messageContent = firstItem.message.content;
+                
+                // Check if the content itself is an image URL
+                if (isImageUrl(messageContent)) {
+                  messageType = 'image';
+                  imageUrl = messageContent;
+                  messageContent = 'تصویر تولید شده:';
+                }
+              }
+              // Check if this is an image response with separate fields
+              if (firstItem.type === 'image' && firstItem.image_url) {
+                messageType = 'image';
+                imageUrl = firstItem.image_url;
+                messageContent = 'تصویر تولید شده:';
               }
               if (firstItem.tokens !== undefined) {
                 // Convert tokens to number (remove \n if present)
@@ -379,15 +441,53 @@ export default function ChatPage() {
             }
             // Check for message.content in the response
             else if (responseData && responseData.message && responseData.message.content) {
+              console.log('Using simple message content handler');
               messageContent = responseData.message.content;
+              
+              // Check if the content itself is an image URL
+              if (isImageUrl(messageContent)) {
+                messageType = 'image';
+                imageUrl = messageContent;
+                messageContent = 'تصویر تولید شده:';
+              }
             }
             // Check for parsed data with content
             else if (responseData && responseData.parsed && responseData.parsed.content) {
+              console.log('Using parsed content handler');
               messageContent = responseData.parsed.content;
+              
+              // Check if the content itself is an image URL
+              if (isImageUrl(messageContent)) {
+                messageType = 'image';
+                imageUrl = messageContent;
+                messageContent = 'تصویر تولید شده:';
+              }
             }
             // Check for direct content in parsed data
             else if (responseData && responseData.parsed && responseData.parsed.message && responseData.parsed.message.content) {
+              console.log('Using parsed message content handler');
               messageContent = responseData.parsed.message.content;
+              
+              // Check if the content itself is an image URL
+              if (isImageUrl(messageContent)) {
+                messageType = 'image';
+                imageUrl = messageContent;
+                messageContent = 'تصویر تولید شده:';
+              }
+            }
+            // Fallback: check if responseData itself is a string (direct URL)
+            else if (typeof responseData === 'string' && isImageUrl(responseData)) {
+              console.log('Using fallback string handler for direct URL');
+              messageContent = 'تصویر تولید شده:';
+              messageType = 'image';
+              imageUrl = responseData;
+            }
+            // Fallback: check if responseData.data is a string (direct URL)
+            else if (responseData && responseData.data && typeof responseData.data === 'string' && isImageUrl(responseData.data)) {
+              console.log('Using fallback data handler for direct URL');
+              messageContent = 'تصویر تولید شده:';
+              messageType = 'image';
+              imageUrl = responseData.data;
             }
             
             // Check for updated tokens in various response formats
@@ -402,6 +502,8 @@ export default function ChatPage() {
             }
             
             console.log('Extracted messageContent:', messageContent);
+            console.log('Extracted messageType:', messageType);
+            console.log('Extracted imageUrl:', imageUrl);
             console.log('Extracted updatedTokens:', updatedTokens);
             
             if (messageContent) {
@@ -413,10 +515,12 @@ export default function ChatPage() {
                   text: messageContent,
                   isUser: false,
                   timestamp: new Date(),
+                  type: messageType,
+                  imageUrl: imageUrl,
                 };
                 return [...filteredMessages, botMessage];
               });
-              console.log('Added bot message to chat:', messageContent);
+              console.log('Added bot message to chat:', messageContent, 'Type:', messageType, 'Image URL:', imageUrl);
             } else {
               // Remove waiting message even if no content
               setMessages(prevMessages => prevMessages.filter(msg => !msg.id.endsWith('_waiting')));
@@ -544,6 +648,18 @@ export default function ChatPage() {
                 }`}
               >
                 <p className="text-sm">{message.text}</p>
+                {message.type === 'image' && message.imageUrl && (
+                  <div className="mt-2">
+                    <Image
+                      src={message.imageUrl}
+                      alt="Generated image"
+                      width={300}
+                      height={300}
+                      className="rounded-lg max-w-full h-auto"
+                      unoptimized
+                    />
+                  </div>
+                )}
                 <p
                   className={`text-xs mt-1 ${
                     message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
