@@ -463,6 +463,18 @@ export default function ChatPage() {
                 messageContent = 'تصویر تولید شده:';
               }
             }
+            // Check for direct data field (webhook route fallback)
+            else if (responseData && responseData.data && typeof responseData.data === 'string') {
+              console.log('Using direct data handler');
+              messageContent = responseData.data;
+              
+              // Check if the data itself is an image URL
+              if (isImageUrl(messageContent)) {
+                messageType = 'image';
+                imageUrl = messageContent;
+                messageContent = 'تصویر تولید شده:';
+              }
+            }
             // Check for direct content in parsed data
             else if (responseData && responseData.parsed && responseData.parsed.message && responseData.parsed.message.content) {
               console.log('Using parsed message content handler');
@@ -474,20 +486,6 @@ export default function ChatPage() {
                 imageUrl = messageContent;
                 messageContent = 'تصویر تولید شده:';
               }
-            }
-            // Fallback: check if responseData itself is a string (direct URL)
-            else if (typeof responseData === 'string' && isImageUrl(responseData)) {
-              console.log('Using fallback string handler for direct URL');
-              messageContent = 'تصویر تولید شده:';
-              messageType = 'image';
-              imageUrl = responseData;
-            }
-            // Fallback: check if responseData.data is a string (direct URL)
-            else if (responseData && responseData.data && typeof responseData.data === 'string' && isImageUrl(responseData.data)) {
-              console.log('Using fallback data handler for direct URL');
-              messageContent = 'تصویر تولید شده:';
-              messageType = 'image';
-              imageUrl = responseData.data;
             }
             
             // Check for updated tokens in various response formats
