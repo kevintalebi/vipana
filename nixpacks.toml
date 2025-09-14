@@ -1,14 +1,13 @@
 [phases.setup]
 nixPkgs = ["nodejs_18"]
-
-[phases.install]
-cmds = ["npm ci"]
+aptPkgs = []
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["chmod +x build.sh", "./build.sh"]
 
 [start]
 cmd = "npm start"
 
 [variables]
 NODE_ENV = "production"
+NIXPACKS_NO_DEFAULT_PHASES = "true"
