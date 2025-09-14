@@ -6,6 +6,5 @@ npm-debug.log
 README.md
 .env*
 *.log
-.nixpacks
 coolify.yml
 .coolifyignore
