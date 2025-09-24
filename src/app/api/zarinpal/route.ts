@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server'
 
+interface RequestBody {
+  amount?: number;
+  callback_url?: string;
+  description?: string;
+  email?: string;
+  mobile?: string;
+}
+
+interface ZarinpalResponse {
+  data?: {
+    code?: number;
+    authority?: string;
+    fee_type?: string;
+  };
+  errors?: string[];
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const body = await request.json().catch(() => ({} as RequestBody))
     const { amount, callback_url, description, email, mobile } = body || {}
 
     if (!amount || amount <= 0) {
@@ -35,7 +52,7 @@ export async function POST(request: Request) {
       // Zarinpal expects JSON body; no auth header required, merchant id is in body
     })
 
-    const json = await zarinpalRes.json().catch(() => ({} as Record<string, unknown>))
+    const json = await zarinpalRes.json().catch(() => ({} as ZarinpalResponse))
 
     // Expected shape: { data: { code: 100, authority: '...', fee_type: '...' }, errors: [] }
     const data = json?.data
@@ -52,7 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, authority, url: gatewayUrl })
     }
 
-    return NextResponse.json({ success: false, error: json?.errors || 'Zarinpal request failed', raw: json }, { status: 502 })
+    return NextResponse.json({ success: false, error: json?.errors || 'Zarinpal request failed', raw: json as unknown }, { status: 502 })
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unexpected error'
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
