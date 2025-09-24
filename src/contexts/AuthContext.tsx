@@ -96,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: user.email || '',
             image_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
             full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || '',
-            tokens: 0
+            tokens: 0,
+            theme: 'night'
           }
         }
       } else {
@@ -111,6 +112,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (profile) {
         setUserProfile(profile)
+        // Apply theme to document
+        const theme = profile.theme || 'night'
+        document.documentElement.setAttribute('data-theme', theme)
+        console.log('🎨 Applied theme:', theme)
       }
     } catch (error) {
       console.error('❌ Error syncing user profile:', error)
@@ -120,9 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: user.email || '',
         image_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || '',
-        tokens: 0
+        tokens: 0,
+        theme: 'night' as const
       }
       setUserProfile(fallbackProfile)
+      // Apply default theme
+      document.documentElement.setAttribute('data-theme', 'night')
     }
   }
 

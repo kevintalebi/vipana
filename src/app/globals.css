@@ -1,26 +1,259 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Neon Theme Colors */
+  --neon-primary: #00f5ff;
+  --neon-secondary: #DAF527;
+  --neon-accent: #00ff88;
+  --neon-warning: #ffaa00;
+  --neon-danger: #ff0040;
+  
+  /* Night Theme (Default) */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-card: #0f1419;
+  --bg-input: #1a1a2e;
+  
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  
+  /* Border Colors */
+  --border-primary: #2a2a3e;
+  --border-neon: #00f5ff;
+  
+  /* Shadows */
+  --shadow-neon: 0 0 20px rgba(0, 245, 255, 0.3);
+  --shadow-neon-strong: 0 0 30px rgba(0, 245, 255, 0.5);
+  --shadow-glow: 0 0 40px rgba(0, 245, 255, 0.2);
+}
+
+/* Day Theme */
+[data-theme="day"] {
+  /* Day Theme Colors - Bright and vibrant */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #e2e8f0;
+  --bg-tertiary: #cbd5e1;
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
+  
+  /* Text Colors */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  /* Border Colors */
+  --border-primary: #cbd5e1;
+  --border-neon: #00f5ff;
+  
+  /* Shadows - Adjusted for day theme */
+  --shadow-neon: 0 0 20px rgba(0, 245, 255, 0.4);
+  --shadow-neon-strong: 0 0 30px rgba(0, 245, 255, 0.6);
+  --shadow-glow: 0 0 40px rgba(0, 245, 255, 0.3);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-vazir);
   --font-mono: var(--font-vazir);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-vazir), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Neon Border Animation */
+@keyframes neon-border {
+  0% {
+    border-color: var(--neon-primary);
+    box-shadow: 0 0 5px var(--neon-primary), inset 0 0 5px var(--neon-primary);
+  }
+  16.66% {
+    border-color: var(--neon-secondary);
+    box-shadow: 0 0 10px var(--neon-secondary), inset 0 0 10px var(--neon-secondary);
+  }
+  33.33% {
+    border-color: var(--neon-accent);
+    box-shadow: 0 0 15px var(--neon-accent), inset 0 0 15px var(--neon-accent);
+  }
+  50% {
+    border-color: var(--neon-primary);
+    box-shadow: 0 0 5px var(--neon-primary), inset 0 0 5px var(--neon-primary);
+  }
+  66.66% {
+    border-color: var(--neon-secondary);
+    box-shadow: 0 0 10px var(--neon-secondary), inset 0 0 10px var(--neon-secondary);
+  }
+  83.33% {
+    border-color: var(--neon-accent);
+    box-shadow: 0 0 15px var(--neon-accent), inset 0 0 15px var(--neon-accent);
+  }
+  100% {
+    border-color: var(--neon-primary);
+    box-shadow: 0 0 5px var(--neon-primary), inset 0 0 5px var(--neon-primary);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-vazir), Arial, Helvetica, sans-serif;
+/* Pulsing Glow Animation */
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 245, 255, 0.6), 0 0 40px rgba(0, 245, 255, 0.3);
+  }
+}
+
+/* Floating Animation */
+@keyframes neon-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Gradient Background Animation */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Robot Waiting Animation */
+@keyframes robot-thinking {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+}
+
+@keyframes robot-eyes-blink {
+  0%, 90%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes robot-processing {
+  0% {
+    opacity: 0.3;
+    transform: scaleX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scaleX(0);
+  }
+}
+
+@keyframes robot-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 245, 255, 0.6), 0 0 40px rgba(0, 245, 255, 0.3);
+  }
+}
+
+/* Neon Text Glow */
+.neon-text {
+  text-shadow: 0 0 10px var(--neon-primary), 0 0 20px var(--neon-primary), 0 0 30px var(--neon-primary);
+}
+
+/* Animated Border Classes */
+.neon-border {
+  border: 2px solid var(--neon-primary);
+  animation: neon-border 3s ease-in-out infinite;
+  position: relative;
+}
+
+.neon-border::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, var(--neon-primary), var(--neon-secondary), var(--neon-accent), var(--neon-secondary));
+  background-size: 400% 400%;
+  animation: gradient-shift 3s ease infinite;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+.neon-glow {
+  box-shadow: var(--shadow-neon);
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+.neon-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.neon-input:focus {
+  border-color: var(--neon-primary);
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.4);
+  outline: none;
+}
+
+/* Glass Morphism Effect */
+.glass {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 245, 255, 0.2);
+}
+
+[data-theme="day"] .glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 245, 255, 0.3);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--neon-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-secondary);
 }

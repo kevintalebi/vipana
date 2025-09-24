@@ -7,6 +7,7 @@ export interface UserProfile {
   image_url: string
   full_name: string
   tokens: number
+  theme?: 'day' | 'night'
 }
 
 export async function upsertUserProfile(user: User): Promise<UserProfile | null> {
@@ -101,7 +102,8 @@ export async function upsertUserProfile(user: User): Promise<UserProfile | null>
           user_id: user.id,
           email,
           image_url: imageUrl,
-          full_name: fullName
+          full_name: fullName,
+          theme: 'night' // Default to night theme
         }
 
         console.log('🔍 About to insert user data:', JSON.stringify(userData, null, 2))
