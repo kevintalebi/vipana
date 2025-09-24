@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({} as any))
+    const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const { amount, callback_url, description, email, mobile } = body || {}
 
     if (!amount || amount <= 0) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       // Zarinpal expects JSON body; no auth header required, merchant id is in body
     })
 
-    const json = await zarinpalRes.json().catch(() => ({} as any))
+    const json = await zarinpalRes.json().catch(() => ({} as Record<string, unknown>))
 
     // Expected shape: { data: { code: 100, authority: '...', fee_type: '...' }, errors: [] }
     const data = json?.data
@@ -53,8 +53,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: false, error: json?.errors || 'Zarinpal request failed', raw: json }, { status: 502 })
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error?.message || 'Unexpected error' }, { status: 500 })
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error'
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }
 
