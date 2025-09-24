@@ -150,8 +150,8 @@ export default function ChatPage() {
         console.error('Upload error details:', {
           error,
           message: error.message,
-          statusCode: error.statusCode,
-          errorCode: error.error
+          statusCode: (error as any).statusCode,
+          errorCode: (error as any).error
         });
         alert('خطا در آپلود تصویر: ' + error.message);
         setIsUploading(false);
@@ -366,7 +366,7 @@ export default function ChatPage() {
           
           // Special debugging for image services
           if (groupedServices['عکس']) {
-            groupedServices['عکس'].forEach(service => {
+            groupedServices['عکس'].forEach((service: Service) => {
               console.log('Image service name:', `"${service.name}"`);
             });
           }
@@ -690,7 +690,7 @@ export default function ChatPage() {
           const filteredMessages = prevMessages.filter(msg => !msg.id.endsWith('_waiting'));
           const errorMessage: Message = {
             id: Date.now().toString() + '_error',
-            text: webhookStatus.message || 'خطا: وب‌هوک در دسترس نیست.',
+            text: (webhookStatus as any).message || 'خطا: وب‌هوک در دسترس نیست.',
             isUser: false,
             timestamp: new Date(),
           };
@@ -750,6 +750,10 @@ export default function ChatPage() {
         console.log('Target webhook URL:', webhookUrl);
 
         console.log('Making direct request to n8n webhook...');
+        
+        if (!webhookUrl) {
+          throw new Error('Webhook URL is not configured');
+        }
         
         // Call n8n webhook directly
         const response = await fetch(webhookUrl, {
@@ -1417,7 +1421,7 @@ export default function ChatPage() {
       }
 
       // Get the price (try different possible fields)
-      const price = parseFloat(serviceData.price || serviceData.cost || serviceData.amount || '0');
+      const price = parseFloat((serviceData as any).price || (serviceData as any).cost || (serviceData as any).amount || '0');
       console.log('Service price:', price);
 
       if (price <= 0) {
@@ -1439,6 +1443,11 @@ export default function ChatPage() {
       console.log('Processing token deduction for price:', price);
 
       // Get current user tokens
+      if (!user?.id) {
+        console.error('User ID not available');
+        return;
+      }
+      
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('tokens')
@@ -1480,7 +1489,7 @@ export default function ChatPage() {
       const { error: updateError } = await supabase
         .from('users')
         .update({ tokens: newTokenBalance.toString() })
-        .eq('user_id', user.id);
+        .eq('user_id', user!.id);
 
       if (updateError) {
         console.error('Error updating user tokens:', updateError);
@@ -1490,14 +1499,14 @@ export default function ChatPage() {
       // Update local user profile
       setLocalUserProfile(prev => {
         if (prev) {
-          return { ...prev, tokens: newTokenBalance.toString() };
+          return { ...prev, tokens: newTokenBalance };
         }
         return prev;
       });
 
       // Also update the auth context if updateUserTokens function is available
       if (updateUserTokens) {
-        updateUserTokens(newTokenBalance.toString());
+        updateUserTokens(newTokenBalance);
       }
 
       console.log('✅ Tokens deducted successfully!');
@@ -2054,13 +2063,14 @@ export default function ChatPage() {
       const result = await checkVideoStatus(requestId);
       
       if (result.success && result.data) {
+        const data = result.data as { status?: string; video_url?: string; tokens?: number };
         // Check if video is ready
-        if (result.data.status === 'completed' && result.data.video_url) {
-          console.log('Video is ready!', result.data);
+        if (data.status === 'completed' && data.video_url) {
+          console.log('Video is ready!', data);
           
           // Process the completed video
-          const videoUrl = result.data.video_url;
-          const tokens = result.data.tokens || 0;
+          const videoUrl = data.video_url;
+          const tokens = data.tokens || 0;
           
           // Remove waiting message and add video message
           setMessages(prevMessages => {
@@ -2085,8 +2095,8 @@ export default function ChatPage() {
           setIsWaitingForResponse(false);
           setInputValue('');
           return;
-        } else if (result.data.status === 'failed') {
-          console.log('Video generation failed:', result.data);
+        } else if (data.status === 'failed') {
+          console.log('Video generation failed:', data);
           
           // Remove waiting message and show error
           setMessages(prevMessages => {
