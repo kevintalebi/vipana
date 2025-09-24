@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Settings, User, MessageSquare, Menu, X, Zap, Download, Upload, Image as ImageIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Settings, User, X, Zap, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -51,7 +51,7 @@ interface ErrorDetails {
 }
 
 export default function ChatPage() {
-  const { user, userProfile, signOut, loading, updateUserTokens } = useAuth();
+  const { user, userProfile, updateUserTokens } = useAuth();
   const [localUserProfile, setLocalUserProfile] = useState(userProfile);
 
   // Sync local profile with auth context
@@ -79,7 +79,7 @@ export default function ChatPage() {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState<number>(100000);
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('1:1');
-  const [waitingTime, setWaitingTime] = useState<number>(0);
+  // const [waitingTime] = useState<number>(0);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -150,8 +150,8 @@ export default function ChatPage() {
         console.error('Upload error details:', {
           error,
           message: error.message,
-          statusCode: (error as any).statusCode,
-          errorCode: (error as any).error
+          statusCode: (error as { statusCode?: number }).statusCode,
+          errorCode: (error as { error?: string }).error
         });
         alert('خطا در آپلود تصویر: ' + error.message);
         setIsUploading(false);
@@ -208,12 +208,12 @@ export default function ChatPage() {
         });
     }
   };
-  const [retryCount, setRetryCount] = useState<number>(0);
+  // const [retryCount] = useState<number>(0);
   const [isPolling, setIsPolling] = useState<boolean>(false);
-  const [pollingCount, setPollingCount] = useState<number>(0);
-  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
-  const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
-  const [lastThemeUpdate, setLastThemeUpdate] = useState<number>(0);
+  // const [pollingCount] = useState<number>(0);
+  // const [currentRequestId] = useState<string | null>(null);
+  // const [isUpdatingTheme] = useState(false);
+  // const [lastThemeUpdate] = useState<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -227,36 +227,32 @@ export default function ChatPage() {
   // Timer for waiting time
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    let waitingTime = 0;
     if (isWaitingForResponse && !isPolling) {
-      setWaitingTime(0);
+      waitingTime = 0;
       interval = setInterval(() => {
-        setWaitingTime(prev => {
-          const newTime = prev + 1;
-          // Update waiting message with elapsed time
-          setMessages(prevMessages => 
-            prevMessages.map(msg => {
-              if (msg.id.endsWith('_waiting')) {
-                const minutes = Math.floor(newTime / 60);
-                const seconds = newTime % 60;
-                const timeStr = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds} ثانیه`;
-                
-                const baseText = selectedType === 'ویدیو' 
-                  ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-10 دقیقه طول بکشد'
-                  : 'در حال پردازش...';
-                
-                return {
-                  ...msg,
-                  text: `${baseText} (${timeStr})`
-                };
-              }
-              return msg;
-            })
-          );
-          return newTime;
-        });
+        waitingTime += 1;
+        // Update waiting message with elapsed time
+        setMessages(prevMessages => 
+          prevMessages.map(msg => {
+            if (msg.id.endsWith('_waiting')) {
+              const minutes = Math.floor(waitingTime / 60);
+              const seconds = waitingTime % 60;
+              const timeStr = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds} ثانیه`;
+              
+              const baseText = selectedType === 'ویدیو' 
+                ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-10 دقیقه طول بکشد'
+                : 'در حال پردازش...';
+              
+              return {
+                ...msg,
+                text: `${baseText} (${timeStr})`
+              };
+            }
+            return msg;
+          })
+        );
       }, 1000);
-    } else {
-      setWaitingTime(0);
     }
     
     return () => {
@@ -521,7 +517,7 @@ export default function ChatPage() {
       setMessages(prevMessages => [...prevMessages, waitingMessage]);
       
       // Reset retry count
-      setRetryCount(0);
+      // setRetryCount(0);
       
       setIsWaitingForResponse(true);
       
@@ -690,7 +686,7 @@ export default function ChatPage() {
           const filteredMessages = prevMessages.filter(msg => !msg.id.endsWith('_waiting'));
           const errorMessage: Message = {
             id: Date.now().toString() + '_error',
-            text: (webhookStatus as any).message || 'خطا: وب‌هوک در دسترس نیست.',
+            text: (webhookStatus as { message?: string }).message || 'خطا: وب‌هوک در دسترس نیست.',
             isUser: false,
             timestamp: new Date(),
           };
@@ -732,7 +728,7 @@ export default function ChatPage() {
       }
       try {
         const requestId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9);
-        setCurrentRequestId(requestId);
+        // setCurrentRequestId(requestId);
         
         const requestData = {
           type: selectedType,
@@ -1421,7 +1417,9 @@ export default function ChatPage() {
       }
 
       // Get the price (try different possible fields)
-      const price = parseFloat((serviceData as any).price || (serviceData as any).cost || (serviceData as any).amount || '0');
+      const price = parseFloat((serviceData as { price?: string; cost?: string; amount?: string }).price || 
+                               (serviceData as { price?: string; cost?: string; amount?: string }).cost || 
+                               (serviceData as { price?: string; cost?: string; amount?: string }).amount || '0');
       console.log('Service price:', price);
 
       if (price <= 0) {
@@ -1896,53 +1894,53 @@ export default function ChatPage() {
     poll();
   };
 
-  const checkWebhookStatus = async (): Promise<{ available: boolean; isTestMode: boolean; message?: string }> => {
-    try {
-      // Try a simple GET request to check if webhook is available
-      const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || 'https://n8n.vipana.ir/webhook/content-handler';
-      const response = await fetch(webhookUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
+  // const checkWebhookStatus = async (): Promise<{ available: boolean; isTestMode: boolean; message?: string }> => {
+  //   try {
+  //     // Try a simple GET request to check if webhook is available
+  //     const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || 'https://n8n.vipana.ir/webhook/content-handler';
+  //     const response = await fetch(webhookUrl, {
+  //       method: 'GET',
+  //       headers: {
+  //         'Accept': 'application/json',
+  //       },
+  //     });
       
-      console.log('Webhook status check:', response.status, response.statusText);
+  //     console.log('Webhook status check:', response.status, response.statusText);
       
-      if (response.status === 404) {
-        try {
-          const errorText = await response.text();
-          const errorData = JSON.parse(errorText);
-          if (errorData.message && errorData.message.includes('not registered')) {
-            return {
-              available: false,
-              isTestMode: true,
-              message: 'وب‌هوک n8n در حالت تست است. لطفاً workflow را فعال کنید.'
-            };
-          }
-        } catch {
-          // Ignore parsing errors
-        }
-        return {
-          available: false,
-          isTestMode: false,
-          message: 'وب‌هوک در دسترس نیست.'
-        };
-      }
+  //     if (response.status === 404) {
+  //       try {
+  //         const errorText = await response.text();
+  //         const errorData = JSON.parse(errorText);
+  //         if (errorData.message && errorData.message.includes('not registered')) {
+  //           return {
+  //             available: false,
+  //             isTestMode: true,
+  //             message: 'وب‌هوک n8n در حالت تست است. لطفاً workflow را فعال کنید.'
+  //           };
+  //         }
+  //       } catch {
+  //         // Ignore parsing errors
+  //       }
+  //       return {
+  //         available: false,
+  //         isTestMode: false,
+  //         message: 'وب‌هوک در دسترس نیست.'
+  //       };
+  //     }
       
-      return {
-        available: true,
-        isTestMode: false
-      };
-    } catch (error) {
-      console.log('Webhook status check failed:', error);
-      return {
-        available: false,
-        isTestMode: false,
-        message: 'خطا در بررسی وضعیت وب‌هوک.'
-      };
-    }
-  };
+  //     return {
+  //       available: true,
+  //       isTestMode: false
+  //     };
+  //   } catch (error) {
+  //     console.log('Webhook status check failed:', error);
+  //     return {
+  //       available: false,
+  //       isTestMode: false,
+  //       message: 'خطا در بررسی وضعیت وب‌هوک.'
+  //     };
+  //   }
+  // };
 
   const checkVideoStatus = async (requestId: string): Promise<{ success: boolean; data?: unknown; error?: string }> => {
     try {
@@ -2038,11 +2036,11 @@ export default function ChatPage() {
   const startPolling = async (requestId: string, maxPolls: number = 20) => {
     console.log(`Starting polling for request: ${requestId}, max polls: ${maxPolls}`);
     setIsPolling(true);
-    setPollingCount(0);
+    // setPollingCount(0);
     
     for (let poll = 1; poll <= maxPolls; poll++) {
       console.log(`Polling attempt ${poll}/${maxPolls}`);
-      setPollingCount(poll);
+      // setPollingCount(poll);
       
       // Update waiting message to show polling status
       setMessages(prevMessages => 

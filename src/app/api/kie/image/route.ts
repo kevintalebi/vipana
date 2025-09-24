@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         data: result.data,
         status: result.status,
         result: result.result,
-        resultUrls: result.resultUrls,
+        resultUrls: (result as { resultUrls?: string[] }).resultUrls,
         isCompleted: result.isCompleted,
         isFailed: result.isFailed
       })

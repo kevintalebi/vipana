@@ -1,8 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { 
-  MessageSquare, 
-  LogIn, 
   Zap, 
   Image as ImageIcon, 
   Video, 
