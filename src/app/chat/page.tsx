@@ -1277,7 +1277,7 @@ export default function ChatPage() {
               if (errorData.message && errorData.message.includes('webhook') && errorData.message.includes('not registered')) {
                 errorMessage = 'خطا: وب‌هوک n8n در حالت تست است. لطفاً workflow را فعال کنید.';
               }
-            } catch (e) {
+            } catch {
               // Use default error message
             }
           }
@@ -1596,7 +1596,7 @@ export default function ChatPage() {
                       imageUrl = parsedResult.resultUrls[0];
                       console.log('Extracted image URL from parsed result:', imageUrl);
                     }
-                  } catch (parseError) {
+                  } catch {
                     console.log('Result is not JSON, using as direct URL');
                     imageUrl = responseData.result;
                   }
@@ -1911,7 +1911,7 @@ export default function ChatPage() {
               message: 'وب‌هوک n8n در حالت تست است. لطفاً workflow را فعال کنید.'
             };
           }
-        } catch (e) {
+        } catch {
           // Ignore parsing errors
         }
         return {
@@ -1935,7 +1935,7 @@ export default function ChatPage() {
     }
   };
 
-  const checkVideoStatus = async (requestId: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+  const checkVideoStatus = async (requestId: string): Promise<{ success: boolean; data?: unknown; error?: string }> => {
     try {
       console.log(`Checking video status for request: ${requestId}`);
       
@@ -2201,77 +2201,77 @@ export default function ChatPage() {
     setIsWaitingForResponse(false);
   };
 
-  const retryWebhookRequest = async (requestData: any, maxRetries: number = 10): Promise<Response> => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`Webhook attempt ${attempt}/${maxRetries}`);
+  // const retryWebhookRequest = async (requestData: unknown, maxRetries: number = 10): Promise<Response> => {
+  //   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  //     try {
+  //       console.log(`Webhook attempt ${attempt}/${maxRetries}`);
         
-        // Update waiting message to show retry attempt
-        if (attempt > 1) {
-          setMessages(prevMessages => 
-            prevMessages.map(msg => {
-              if (msg.id.endsWith('_waiting')) {
-                const baseText = selectedType === 'ویدیو' 
-                  ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-20 دقیقه طول بکشد'
-                  : 'در حال پردازش...';
-                return {
-                  ...msg,
-                  text: `${baseText} (تلاش مجدد ${attempt}/${maxRetries})`
-                };
-              }
-              return msg;
-            })
-          );
-        }
+  //       // Update waiting message to show retry attempt
+  //       if (attempt > 1) {
+  //         setMessages(prevMessages => 
+  //           prevMessages.map(msg => {
+  //             if (msg.id.endsWith('_waiting')) {
+  //               const baseText = selectedType === 'ویدیو' 
+  //                 ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-20 دقیقه طول بکشد'
+  //                 : 'در حال پردازش...';
+  //               return {
+  //                 ...msg,
+  //                 text: `${baseText} (تلاش مجدد ${attempt}/${maxRetries})`
+  //               };
+  //             }
+  //             return msg;
+  //           })
+  //         );
+  //       }
         
-        // Create AbortController for long-running requests
-        const timeoutDuration = selectedType === 'ویدیو' ? 20 * 60 * 1000 : 5 * 60 * 1000; // 20 min for video, 5 min for others
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+  //       // Create AbortController for long-running requests
+  //       const timeoutDuration = selectedType === 'ویدیو' ? 20 * 60 * 1000 : 5 * 60 * 1000; // 20 min for video, 5 min for others
+  //       const controller = new AbortController();
+  //       const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
         
-        const webhookUrl = 'https://n8n.vipana.ir/webhook/content-handler';
-      const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-          signal: controller.signal,
-        });
+  //       const webhookUrl = 'https://n8n.vipana.ir/webhook/content-handler';
+  //     const response = await fetch(webhookUrl, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'Accept': 'application/json',
+  //         },
+  //         body: JSON.stringify(requestData),
+  //         signal: controller.signal,
+  //       });
         
-        clearTimeout(timeoutId);
+  //       clearTimeout(timeoutId);
         
-        // Check if response is successful (200-299) or has content
-        const isSuccessful = response.ok || (response.status >= 200 && response.status < 300);
+  //       // Check if response is successful (200-299) or has content
+  //       const isSuccessful = response.ok || (response.status >= 200 && response.status < 300);
         
-        if (isSuccessful) {
-          return response;
-        } else {
-          console.log(`Attempt ${attempt} failed with status: ${response.status}`);
-          if (attempt === maxRetries) {
-            return response; // Return the last failed response
-          }
-          // Wait before retry (exponential backoff)
-          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-          console.log(`Waiting ${waitTime}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-      } catch (error) {
-        console.log(`Attempt ${attempt} failed with error:`, error);
-        if (attempt === maxRetries) {
-          throw error; // Re-throw the last error
-        }
-        // Wait before retry
-        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
+  //       if (isSuccessful) {
+  //         return response;
+  //       } else {
+  //         console.log(`Attempt ${attempt} failed with status: ${response.status}`);
+  //         if (attempt === maxRetries) {
+  //           return response; // Return the last failed response
+  //         }
+  //         // Wait before retry (exponential backoff)
+  //         const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+  //         console.log(`Waiting ${waitTime}ms before retry...`);
+  //         await new Promise(resolve => setTimeout(resolve, waitTime));
+  //       }
+  //     } catch (error) {
+  //       console.log(`Attempt ${attempt} failed with error:`, error);
+  //       if (attempt === maxRetries) {
+  //         throw error; // Re-throw the last error
+  //       }
+  //       // Wait before retry
+  //       const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+  //       console.log(`Waiting ${waitTime}ms before retry...`);
+  //       await new Promise(resolve => setTimeout(resolve, waitTime));
+  //     }
+  //   }
     
-    // This should never be reached, but TypeScript needs it
-    throw new Error('All retry attempts failed');
-  };
+  //   // This should never be reached, but TypeScript needs it
+  //   throw new Error('All retry attempts failed');
+  // };
 
 
   return (
@@ -2515,7 +2515,7 @@ export default function ChatPage() {
                       تلاش مجدد
                     </button>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      💡 اگر خطا ادامه دارد، لطفاً در n8n روی "Execute workflow" کلیک کنید
+                      💡 اگر خطا ادامه دارد، لطفاً در n8n روی &quot;Execute workflow&quot; کلیک کنید
                     </p>
                   </div>
                 )}
@@ -2975,7 +2975,7 @@ export default function ChatPage() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ amount: rechargeAmount, callback_url: callbackUrl, email: user?.email })
                           });
-                          const data = await res.json().catch(() => ({} as any));
+                          const data = await res.json().catch(() => ({} as Record<string, unknown>));
                           const paymentUrl = data?.url || data?.payment_url;
                           const authority = data?.authority || data?.Authority;
                           if (paymentUrl) {
