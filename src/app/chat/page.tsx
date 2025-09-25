@@ -496,6 +496,10 @@ export default function ChatPage() {
     try {
       setIsRecharging(true)
       
+      // Add timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+      
       const response = await fetch('/api/zarinpal', {
         method: 'POST',
         headers: {
@@ -506,8 +510,15 @@ export default function ChatPage() {
           user_id: user.id,
           email: user.email,
           description: `شارژ حساب ویپانا - ${rechargeAmount} تومان`
-        })
+        }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
 
       const data = await response.json()
       
@@ -520,7 +531,14 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error('Payment error:', error)
-      alert('خطا در ارتباط با سرور')
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        alert('زمان اتصال به سرور به پایان رسید')
+      } else if (error instanceof Error && error.message.includes('fetch failed')) {
+        alert('خطا در ارتباط با سرور - لطفاً اتصال اینترنت خود را بررسی کنید')
+      } else {
+        alert('خطا در ارتباط با سرور')
+      }
     } finally {
       setIsRecharging(false)
     }

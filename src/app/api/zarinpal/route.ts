@@ -66,14 +66,48 @@ export async function POST(request: Request) {
     console.log('Zarinpal request payload:', payload)
     console.log('Payment data:', { amount, user_id, email, description })
 
-    const zarinpalRes = await fetch('https://api.zarinpal.com/pg/v4/payment/request.json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    let zarinpalRes: Response
+    let json: ZarinpalResponse
 
-    const json = await zarinpalRes.json().catch(() => ({} as ZarinpalResponse))
-    console.log('Zarinpal response:', json)
+    try {
+      // Create AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      zarinpalRes = await fetch('https://api.zarinpal.com/pg/v4/payment/request.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!zarinpalRes.ok) {
+        console.error('Zarinpal API error:', zarinpalRes.status, zarinpalRes.statusText)
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در ارتباط با درگاه پرداخت زرین‌پال' 
+        }, { status: 502 })
+      }
+
+      json = await zarinpalRes.json()
+      console.log('Zarinpal response:', json)
+    } catch (fetchError) {
+      console.error('Fetch error:', fetchError)
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'زمان اتصال به درگاه پرداخت به پایان رسید' 
+        }, { status: 504 })
+      }
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: 'خطا در ارتباط با سرور پرداخت' 
+      }, { status: 503 })
+    }
 
     const data = json?.data
     if (zarinpalRes.ok && data?.code === 100 && data?.authority) {
