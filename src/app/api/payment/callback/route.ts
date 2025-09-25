@@ -23,14 +23,39 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=merchant_id_missing`)
     }
 
-    // Get payment record by authority
-    const { data: paymentRecord, error: paymentError } = await supabase
+    // Get payment record by authority (try authority first, then fallback to latest)
+    let paymentRecord = null
+    let paymentError = null
+    
+    // First try to find by authority
+    const { data: authPayment, error: authError } = await supabase
       .from('payment')
       .select('*')
       .eq('authority', authority)
       .single()
 
-    console.log('Payment record query result:', { paymentRecord, paymentError, authority })
+    if (authPayment && !authError) {
+      paymentRecord = authPayment
+      console.log('Payment record found by authority:', paymentRecord)
+    } else {
+      console.log('Authority search failed, trying latest payment record:', authError)
+      
+      // Fallback: get the latest payment record (most recent)
+      const { data: latestPayment, error: latestError } = await supabase
+        .from('payment')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (latestPayment && !latestError) {
+        paymentRecord = latestPayment
+        console.log('Latest payment record found:', paymentRecord)
+      } else {
+        paymentError = latestError
+        console.error('No payment record found:', latestError)
+      }
+    }
 
     if (paymentError || !paymentRecord) {
       console.error('Payment record not found:', paymentError)

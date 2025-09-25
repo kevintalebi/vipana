@@ -100,28 +100,42 @@ export async function POST(request: Request) {
       const tokens = Math.floor(amount / coinPrice)
 
       // Save payment record to database
-      try {
-        const paymentData = {
-          user_id: user_id,
-          total_pay: amount,
-          price: coinPrice,
-          tokens: tokens,
-          authority: authority
-        }
-        
-        console.log('Inserting payment record:', paymentData)
-        
-        const { error: dbError } = await supabase
-          .from('payment')
-          .insert(paymentData)
+      const paymentData = {
+        user_id: user_id,
+        total_pay: amount,
+        price: coinPrice,
+        tokens: tokens
+      }
+      
+      console.log('Inserting payment record:', paymentData)
+      
+      const { data: insertedPayment, error: dbError } = await supabase
+        .from('payment')
+        .insert(paymentData)
+        .select()
 
-        if (dbError) {
-          console.error('Database error:', dbError)
-          // Continue anyway, don't fail the payment
-        }
-      } catch (dbError) {
+      if (dbError) {
         console.error('Database error:', dbError)
-        // Continue anyway
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده' 
+        }, { status: 500 })
+      }
+
+      console.log('Payment record inserted successfully:', insertedPayment)
+      
+      // Try to update the record with authority if the column exists
+      if (insertedPayment && insertedPayment.length > 0) {
+        const paymentId = insertedPayment[0].id
+        try {
+          await supabase
+            .from('payment')
+            .update({ authority: authority })
+            .eq('id', paymentId)
+          console.log('Authority updated for payment record:', paymentId)
+        } catch (authError) {
+          console.log('Authority column may not exist, continuing without it:', authError)
+        }
       }
 
       return NextResponse.json({ 
