@@ -567,6 +567,9 @@ export default function ChatPage() {
         case 'user_fetch_failed':
           errorMessage = 'خطا در دریافت اطلاعات کاربر'
           break
+        case 'invalid_tokens':
+          errorMessage = 'تعداد سکه‌های نامعتبر'
+          break
       }
       alert(errorMessage)
       

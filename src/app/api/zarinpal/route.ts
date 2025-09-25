@@ -105,7 +105,8 @@ export async function POST(request: Request) {
           user_id: user_id,
           total_pay: amount,
           price: coinPrice,
-          tokens: tokens
+          tokens: tokens,
+          authority: authority
         }
         
         console.log('Inserting payment record:', paymentData)

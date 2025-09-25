@@ -23,14 +23,14 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=merchant_id_missing`)
     }
 
-    // Get the most recent payment record for this user
-    // Since we don't have authority field, we'll get the latest payment
+    // Get payment record by authority
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payment')
       .select('*')
-      .order('id', { ascending: false })
-      .limit(1)
+      .eq('authority', authority)
       .single()
+
+    console.log('Payment record query result:', { paymentRecord, paymentError, authority })
 
     if (paymentError || !paymentRecord) {
       console.error('Payment record not found:', paymentError)
@@ -55,6 +55,12 @@ export async function GET(request: Request) {
       const tokens = paymentRecord.tokens
 
       console.log(`Payment successful! Adding ${tokens} tokens to user ${paymentRecord.user_id}`)
+      
+      // Check if tokens are valid
+      if (!tokens || tokens <= 0) {
+        console.log('Invalid tokens calculated, skipping token update')
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=invalid_tokens`)
+      }
 
       // Get current user tokens and update them
       const { data: userData, error: userFetchError } = await supabase
@@ -84,6 +90,12 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=token_update_failed`)
       } else {
         console.log(`Successfully added ${tokens} tokens to user ${paymentRecord.user_id}`)
+        
+        // Mark payment as processed by setting tokens to 0 (to prevent double processing)
+        await supabase
+          .from('payment')
+          .update({ tokens: 0 })
+          .eq('id', paymentRecord.id)
       }
 
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?success=payment_successful&tokens=${tokens}`)
