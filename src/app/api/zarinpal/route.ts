@@ -109,24 +109,6 @@ export async function POST(request: Request) {
       }
       
       console.log('Inserting payment record:', paymentData)
-      console.log('User ID type:', typeof user_id, 'Value:', user_id)
-      
-      // First, let's test if we can access the payment table
-      const { data: testAccess, error: accessError } = await supabase
-        .from('payment')
-        .select('*')
-        .limit(1)
-      
-      if (accessError) {
-        console.error('Cannot access payment table:', accessError)
-        return NextResponse.json({ 
-          success: false, 
-          error: 'خطا در دسترسی به جدول پرداخت',
-          details: accessError.message
-        }, { status: 500 })
-      }
-      
-      console.log('Payment table access successful')
       
       const { data: insertedPayment, error: dbError } = await supabase
         .from('payment')
@@ -135,17 +117,9 @@ export async function POST(request: Request) {
 
       if (dbError) {
         console.error('Database error:', dbError)
-        console.error('Database error details:', {
-          message: dbError.message,
-          code: dbError.code,
-          hint: dbError.hint,
-          details: dbError.details
-        })
         return NextResponse.json({ 
           success: false, 
-          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
-          details: dbError.message,
-          code: dbError.code
+          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده' 
         }, { status: 500 })
       }
 
