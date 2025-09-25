@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payment')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(1)
       .single()
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     if (verifyData.data?.code === 100) {
       // Payment successful
-      const amount = verifyData.data.amount
+      const amount = paymentRecord.total_pay // Use the original payment amount
       
       // Get the current coin price from the price table
       const { data: priceData, error: priceError } = await supabase
@@ -75,11 +75,12 @@ export async function GET(request: Request) {
 
       console.log(`Payment amount: ${amount} Rials, Coin price: ${coinPrice} Rials, Tokens to add: ${tokens}`)
 
-      // Update payment record with calculated tokens
+      // Update payment record with calculated tokens and price
       const { error: updatePaymentError } = await supabase
         .from('payment')
         .update({ 
-          tokens: tokens
+          tokens: tokens,
+          price: coinPrice
         })
         .eq('id', paymentRecord.id)
 

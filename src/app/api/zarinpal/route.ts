@@ -86,7 +86,7 @@ export async function POST(request: Request) {
           .insert({
             user_id: user_id,
             total_pay: amount,
-            price: amount, // Store the amount as price for now
+            price: 0, // Will be calculated and updated later
             tokens: 0 // Will be calculated and updated later
           })
 
