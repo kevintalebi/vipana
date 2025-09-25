@@ -496,10 +496,27 @@ export default function ChatPage() {
     try {
       setIsRecharging(true)
       
+      // Test if API is accessible first
+      console.log('Testing API accessibility...')
+      try {
+        const healthResponse = await fetch('/api/health', {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000) // 5 second timeout for test
+        })
+        console.log('Health check result:', healthResponse.status)
+        if (!healthResponse.ok) {
+          throw new Error(`Health check failed: ${healthResponse.status}`)
+        }
+      } catch (healthError) {
+        console.error('Health check failed:', healthError)
+        throw new Error('سرور در دسترس نیست - لطفاً صفحه را رفرش کنید')
+      }
+      
       // Add timeout to the fetch request
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
       
+      console.log('Making payment request...')
       const response = await fetch('/api/zarinpal', {
         method: 'POST',
         headers: {
@@ -515,6 +532,7 @@ export default function ChatPage() {
       })
 
       clearTimeout(timeoutId)
+      console.log('Payment request completed, status:', response.status)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -531,13 +549,23 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error('Payment error:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error name:', error instanceof Error ? error.name : 'N/A')
+      console.error('Error message:', error instanceof Error ? error.message : 'N/A')
       
       if (error instanceof Error && error.name === 'AbortError') {
         alert('زمان اتصال به سرور به پایان رسید')
       } else if (error instanceof Error && error.message.includes('fetch failed')) {
         alert('خطا در ارتباط با سرور - لطفاً اتصال اینترنت خود را بررسی کنید')
+      } else if (error instanceof TypeError && error.message.includes('fetch')) {
+        alert('خطا در درخواست شبکه - لطفاً صفحه را رفرش کنید')
+      } else if (error instanceof Error && error.message.includes('NetworkError')) {
+        alert('خطا در شبکه - لطفاً اتصال اینترنت خود را بررسی کنید')
+      } else if (error instanceof Error && error.message.includes('سرور در دسترس نیست')) {
+        alert(error.message)
       } else {
-        alert('خطا در ارتباط با سرور')
+        console.error('Unknown error type:', error)
+        alert(`خطا در ارتباط با سرور: ${error instanceof Error ? error.message : 'خطای نامشخص'}`)
       }
     } finally {
       setIsRecharging(false)
