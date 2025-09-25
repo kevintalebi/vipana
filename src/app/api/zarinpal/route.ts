@@ -21,13 +21,18 @@ interface ZarinpalResponse {
 
 export async function POST(request: Request) {
   try {
-    console.log('Zarinpal API called')
+    console.log('=== ZARINPAL API CALLED ===')
     
     const body = await request.json().catch(() => ({} as RequestBody))
     console.log('Request body:', body)
     
     const { amount, callback_url, description, email, mobile, user_id } = body || {}
     console.log('Extracted parameters:', { amount, user_id, email, description })
+    
+    console.log('Environment check:', {
+      merchantId: process.env.NEXT_PUBLIC_ZARINPAL_API_KEY ? 'SET' : 'NOT SET',
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || 'NOT SET'
+    })
 
     // Validation
     if (!amount || amount <= 0) {
@@ -71,14 +76,18 @@ export async function POST(request: Request) {
     console.log('Zarinpal request payload:', payload)
     console.log('Payment data:', { amount, user_id, email, description })
 
+    console.log('=== CALLING ZARINPAL API ===')
     const zarinpalRes = await fetch('https://api.zarinpal.com/pg/v4/payment/request.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
 
+    console.log('Zarinpal response status:', zarinpalRes.status)
+    console.log('Zarinpal response ok:', zarinpalRes.ok)
+
     const json = await zarinpalRes.json().catch(() => ({} as ZarinpalResponse))
-    console.log('Zarinpal response:', json)
+    console.log('Zarinpal response JSON:', json)
 
     const data = json?.data
     if (zarinpalRes.ok && data?.code === 100 && data?.authority) {
@@ -86,12 +95,15 @@ export async function POST(request: Request) {
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
       
       // Get current coin price and calculate tokens
+      console.log('=== FETCHING COIN PRICE ===')
       const { data: priceData, error: priceError } = await supabase
         .from('price')
         .select('price')
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
+
+      console.log('Price query result:', { priceData, priceError })
 
       if (priceError || !priceData) {
         console.error('Error fetching coin price:', priceError)
@@ -105,6 +117,7 @@ export async function POST(request: Request) {
       const tokens = Math.floor(amount / coinPrice)
 
       // Save payment record to database
+      console.log('=== INSERTING PAYMENT RECORD ===')
       const paymentData = {
         user_id: user_id,
         total_pay: amount,
@@ -118,6 +131,8 @@ export async function POST(request: Request) {
         .from('payment')
         .insert(paymentData)
         .select()
+
+      console.log('Database insertion result:', { insertedPayment, dbError })
 
       if (dbError) {
         console.error('Database error:', dbError)
