@@ -511,6 +511,7 @@ export default function ChatPage() {
         console.error('Health check failed:', healthError)
         throw new Error('سرور در دسترس نیست - لطفاً صفحه را رفرش کنید')
       }
+
       
       // Add timeout to the fetch request
       const controller = new AbortController()

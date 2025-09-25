@@ -68,6 +68,64 @@ export async function POST(request: Request) {
       },
     }
 
+    // Get current coin price and calculate tokens FIRST
+    console.log('Fetching coin price from database...')
+    const { data: priceData, error: priceError } = await supabase
+      .from('price')
+      .select('price')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    console.log('Price query result:', { priceData, priceError })
+
+    if (priceError || !priceData) {
+      console.error('Error fetching coin price:', priceError)
+      return NextResponse.json({ 
+        success: false, 
+        error: 'خطا در دریافت قیمت سکه',
+        details: priceError?.message || 'No price data found'
+      }, { status: 500 })
+    }
+
+    const coinPrice = priceData.price
+    const tokens = Math.floor(amount / coinPrice)
+
+    // Save payment record to database FIRST
+    const paymentData = {
+      user_id: user_id,
+      total_pay: amount,
+      price: coinPrice,
+      tokens: tokens
+    }
+    
+    console.log('Inserting payment record:', paymentData)
+    
+    const { data: insertedPayment, error: dbError } = await supabase
+      .from('payment')
+      .insert(paymentData)
+      .select()
+
+    console.log('Database insertion result:', { insertedPayment, dbError })
+
+    if (dbError) {
+      console.error('Database error:', dbError)
+      console.error('Database error details:', {
+        message: dbError.message,
+        code: dbError.code,
+        hint: dbError.hint,
+        details: dbError.details
+      })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
+        details: dbError.message,
+        code: dbError.code
+      }, { status: 500 })
+    }
+
+    console.log('Payment record inserted successfully:', insertedPayment)
+
     console.log('Zarinpal request payload:', payload)
     console.log('Payment data:', { amount, user_id, email, description })
 
@@ -118,64 +176,6 @@ export async function POST(request: Request) {
     if (zarinpalRes.ok && data?.code === 100 && data?.authority) {
       const authority: string = data.authority
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
-      
-    // Get current coin price and calculate tokens
-    console.log('Fetching coin price from database...')
-    const { data: priceData, error: priceError } = await supabase
-      .from('price')
-      .select('price')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    console.log('Price query result:', { priceData, priceError })
-
-    if (priceError || !priceData) {
-      console.error('Error fetching coin price:', priceError)
-      return NextResponse.json({ 
-        success: false, 
-        error: 'خطا در دریافت قیمت سکه',
-        details: priceError?.message || 'No price data found'
-      }, { status: 500 })
-    }
-
-      const coinPrice = priceData.price
-      const tokens = Math.floor(amount / coinPrice)
-
-      // Save payment record to database
-      const paymentData = {
-        user_id: user_id,
-        total_pay: amount,
-        price: coinPrice,
-        tokens: tokens
-      }
-      
-      console.log('Inserting payment record:', paymentData)
-      
-      const { data: insertedPayment, error: dbError } = await supabase
-        .from('payment')
-        .insert(paymentData)
-        .select()
-
-      console.log('Database insertion result:', { insertedPayment, dbError })
-
-      if (dbError) {
-        console.error('Database error:', dbError)
-        console.error('Database error details:', {
-          message: dbError.message,
-          code: dbError.code,
-          hint: dbError.hint,
-          details: dbError.details
-        })
-        return NextResponse.json({ 
-          success: false, 
-          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
-          details: dbError.message,
-          code: dbError.code
-        }, { status: 500 })
-      }
-
-      console.log('Payment record inserted successfully:', insertedPayment)
       
       // Try to update the record with authority if the column exists
       if (insertedPayment && insertedPayment.length > 0) {
