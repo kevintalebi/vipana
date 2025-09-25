@@ -81,6 +81,12 @@ export async function GET(request: Request) {
 
       console.log(`Payment successful! Adding ${tokens} tokens to user ${paymentRecord.user_id}`)
       
+      // Check if this payment was already processed
+      if (paymentRecord.status === 'success') {
+        console.log('Payment already processed, skipping token update')
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=payment_already_processed`)
+      }
+      
       // Check if tokens are valid
       if (!tokens || tokens <= 0) {
         console.log('Invalid tokens calculated, skipping token update')
@@ -116,11 +122,18 @@ export async function GET(request: Request) {
       } else {
         console.log(`Successfully added ${tokens} tokens to user ${paymentRecord.user_id}`)
         
-        // Mark payment as processed by setting tokens to 0 (to prevent double processing)
-        await supabase
+        // Mark payment as successful
+        const { error: statusError } = await supabase
           .from('payment')
-          .update({ tokens: 0 })
+          .update({ status: 'success' })
           .eq('id', paymentRecord.id)
+        
+        if (statusError) {
+          console.error('Error updating payment status:', statusError)
+          // Don't fail here, tokens were already updated
+        } else {
+          console.log('Payment status updated to success')
+        }
       }
 
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?success=payment_successful&tokens=${tokens}`)
@@ -128,13 +141,20 @@ export async function GET(request: Request) {
       // Payment failed
       console.error('Payment verification failed:', verifyData)
       
-      // Update payment record to mark as failed (set tokens to 0)
-      await supabase
+      // Update payment record to mark as failed
+      const { error: statusError } = await supabase
         .from('payment')
         .update({ 
+          status: 'failed',
           tokens: 0
         })
         .eq('id', paymentRecord.id)
+      
+      if (statusError) {
+        console.error('Error updating payment status to failed:', statusError)
+      } else {
+        console.log('Payment status updated to failed')
+      }
 
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=payment_verification_failed`)
     }

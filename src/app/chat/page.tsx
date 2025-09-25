@@ -570,6 +570,9 @@ export default function ChatPage() {
         case 'invalid_tokens':
           errorMessage = 'تعداد سکه‌های نامعتبر'
           break
+        case 'payment_already_processed':
+          errorMessage = 'این پرداخت قبلاً پردازش شده است'
+          break
       }
       alert(errorMessage)
       
