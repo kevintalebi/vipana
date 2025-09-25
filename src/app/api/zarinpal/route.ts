@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
 interface RequestBody {
   amount?: number;
@@ -6,6 +7,7 @@ interface RequestBody {
   description?: string;
   email?: string;
   mobile?: string;
+  user_id?: string;
 }
 
 interface ZarinpalResponse {
@@ -20,19 +22,34 @@ interface ZarinpalResponse {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({} as RequestBody))
-    const { amount, callback_url, description, email, mobile } = body || {}
+    const { amount, callback_url, description, email, mobile, user_id } = body || {}
 
+    // Validation
     if (!amount || amount <= 0) {
-      return NextResponse.json({ success: false, error: 'Invalid amount' }, { status: 400 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'مبلغ نامعتبر است' 
+      }, { status: 400 })
+    }
+
+    if (!user_id) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'شناسه کاربر الزامی است' 
+      }, { status: 400 })
     }
 
     const merchantId = process.env.NEXT_PUBLIC_ZARINPAL_API_KEY
     if (!merchantId) {
-      return NextResponse.json({ success: false, error: 'Zarinpal API key is missing' }, { status: 500 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'کلید API زرین‌پال تنظیم نشده است' 
+      }, { status: 500 })
     }
 
-    const cbUrl = callback_url || `${process.env.NEXT_PUBLIC_APP_URL || ''}/payment/callback`
-    const desc = description || 'شارژ حساب'
+    // Set callback URL
+    const cbUrl = callback_url || `${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/api/payment/callback`
+    const desc = description || 'شارژ حساب ویپانا'
 
     const payload = {
       merchant_id: merchantId,
@@ -40,39 +57,75 @@ export async function POST(request: Request) {
       callback_url: cbUrl,
       description: desc,
       metadata: {
+        user_id: user_id,
         email: email || undefined,
         mobile: mobile || undefined,
       },
     }
 
+    console.log('Zarinpal request payload:', payload)
+
     const zarinpalRes = await fetch('https://api.zarinpal.com/pg/v4/payment/request.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      // Zarinpal expects JSON body; no auth header required, merchant id is in body
     })
 
     const json = await zarinpalRes.json().catch(() => ({} as ZarinpalResponse))
+    console.log('Zarinpal response:', json)
 
-    // Expected shape: { data: { code: 100, authority: '...', fee_type: '...' }, errors: [] }
     const data = json?.data
     if (zarinpalRes.ok && data?.code === 100 && data?.authority) {
       const authority: string = data.authority
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
-      return NextResponse.json({ success: true, authority, url: gatewayUrl })
+      
+      // Save payment record to database
+      try {
+        const { error: dbError } = await supabase
+          .from('payment')
+          .insert({
+            user_id: user_id,
+            total_pay: amount,
+            price: amount, // Store the amount as price for now
+            tokens: 0 // Will be calculated and updated later
+          })
+
+        if (dbError) {
+          console.error('Database error:', dbError)
+          // Continue anyway, don't fail the payment
+        }
+      } catch (dbError) {
+        console.error('Database error:', dbError)
+        // Continue anyway
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        authority, 
+        url: gatewayUrl 
+      })
     }
 
-    // If sandbox or other variations
+    // Handle other success cases
     if (zarinpalRes.ok && data?.authority) {
       const authority: string = data.authority
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
       return NextResponse.json({ success: true, authority, url: gatewayUrl })
     }
 
-    return NextResponse.json({ success: false, error: json?.errors || 'Zarinpal request failed', raw: json as unknown }, { status: 502 })
+    return NextResponse.json({ 
+      success: false, 
+      error: json?.errors || 'درخواست پرداخت ناموفق بود', 
+      raw: json as unknown 
+    }, { status: 502 })
+
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unexpected error'
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    console.error('Zarinpal API error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'خطای غیرمنتظره'
+    return NextResponse.json({ 
+      success: false, 
+      error: errorMessage 
+    }, { status: 500 })
   }
 }
 

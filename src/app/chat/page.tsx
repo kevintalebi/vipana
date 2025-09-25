@@ -82,6 +82,7 @@ export default function ChatPage() {
   // const [waitingTime] = useState<number>(0);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRecharging, setIsRecharging] = useState(false);
 
   // Reset upload state function
   const resetUploadState = () => {
@@ -484,6 +485,95 @@ export default function ChatPage() {
       setSelectedModel('');
     }
   };
+
+  // Payment functions
+  const handleRecharge = async () => {
+    if (!user || !localUserProfile) {
+      console.error('User not authenticated')
+      return
+    }
+
+    try {
+      setIsRecharging(true)
+      
+      const response = await fetch('/api/zarinpal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: rechargeAmount,
+          user_id: user.id,
+          email: user.email,
+          description: `شارژ حساب ویپانا - ${rechargeAmount} ریال`
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success && data.url) {
+        // Redirect to Zarinpal gateway
+        window.location.href = data.url
+      } else {
+        console.error('Payment initiation failed:', data.error)
+        alert(`خطا در شروع پرداخت: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Payment error:', error)
+      alert('خطا در ارتباط با سرور')
+    } finally {
+      setIsRecharging(false)
+    }
+  }
+
+  // Handle payment callback parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    const error = urlParams.get('error')
+    const tokens = urlParams.get('tokens')
+
+    if (success === 'payment_successful' && tokens) {
+      const newTokens = parseInt(tokens)
+      updateUserTokens((localUserProfile?.tokens || 0) + newTokens)
+      alert(`پرداخت موفق! ${tokens} سکه به حساب شما اضافه شد.`)
+      
+      // Clean URL
+      window.history.replaceState({}, '', '/chat')
+    } else if (error) {
+      let errorMessage = 'خطا در پرداخت'
+      switch (error) {
+        case 'payment_failed':
+          errorMessage = 'پرداخت ناموفق بود'
+          break
+        case 'payment_verification_failed':
+          errorMessage = 'تأیید پرداخت ناموفق بود'
+          break
+        case 'authority_missing':
+          errorMessage = 'شناسه پرداخت یافت نشد'
+          break
+        case 'payment_record_not_found':
+          errorMessage = 'رکورد پرداخت یافت نشد'
+          break
+        case 'token_update_failed':
+          errorMessage = 'خطا در به‌روزرسانی سکه‌ها'
+          break
+        case 'callback_error':
+          errorMessage = 'خطا در پردازش پرداخت'
+          break
+        case 'price_fetch_failed':
+          errorMessage = 'خطا در دریافت قیمت سکه'
+          break
+        case 'user_fetch_failed':
+          errorMessage = 'خطا در دریافت اطلاعات کاربر'
+          break
+      }
+      alert(errorMessage)
+      
+      // Clean URL
+      window.history.replaceState({}, '', '/chat')
+    }
+  }, [localUserProfile, updateUserTokens])
 
   const handleSendMessage = async () => {
     console.log('=== HANDLE SEND MESSAGE START ===');
@@ -2973,40 +3063,21 @@ export default function ChatPage() {
                     انصراف
                   </button>
                   <button
-                    onClick={async () => {
-                      try {
-                        const requestUrl = '/api/payment/request';
-                        const callbackUrl = process.env.NEXT_PUBLIC_ZARINPAL_CALLBACK_URL || (typeof window !== 'undefined' ? `${window.location.origin}/payment/callback` : '');
-                        if (requestUrl) {
-                          const res = await fetch(requestUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ amount: rechargeAmount, callback_url: callbackUrl, email: user?.email })
-                          });
-                          const data = await res.json().catch(() => ({} as Record<string, unknown>));
-                          const paymentUrl = data?.url || data?.payment_url;
-                          const authority = data?.authority || data?.Authority;
-                          if (paymentUrl) {
-                            window.location.href = paymentUrl;
-                            return;
-                          }
-                          if (authority) {
-                            window.location.href = `https://www.zarinpal.com/pg/StartPay/${authority}`;
-                            return;
-                          }
-                          alert('متاسفانه ایجاد لینک پرداخت ناموفق بود.');
-                          return;
-                        }
-                        alert('آدرس ایجاد تراکنش زرین‌پال تنظیم نشده است. متغیر NEXT_PUBLIC_ZARINPAL_REQUEST_URL را مقداردهی کنید.');
-                      } catch (err) {
-                        console.error('Payment init error:', err);
-                        alert('خطا در اتصال به درگاه پرداخت.');
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
+                    onClick={handleRecharge}
+                    disabled={isRecharging}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Zap className="w-5 h-5" />
-                    پرداخت
+                    {isRecharging ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        در حال پردازش...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        پرداخت
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
