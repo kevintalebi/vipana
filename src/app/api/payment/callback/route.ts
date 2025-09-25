@@ -51,42 +51,10 @@ export async function GET(request: Request) {
     console.log('Zarinpal verify response:', verifyData)
 
     if (verifyData.data?.code === 100) {
-      // Payment successful
-      const amount = paymentRecord.total_pay // Use the original payment amount
-      
-      // Get the current coin price from the price table
-      const { data: priceData, error: priceError } = await supabase
-        .from('price')
-        .select('price')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+      // Payment successful - tokens are already calculated in payment record
+      const tokens = paymentRecord.tokens
 
-      console.log('Price fetch result:', { priceData, priceError })
-
-      if (priceError || !priceData) {
-        console.error('Error fetching coin price:', priceError)
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=price_fetch_failed`)
-      }
-
-      // Calculate tokens based on actual price
-      const coinPrice = priceData.price
-      const tokens = Math.floor(amount / coinPrice)
-
-      console.log(`Payment amount: ${amount} Rials, Coin price: ${coinPrice} Rials, Tokens to add: ${tokens}`)
-
-      // Update payment record with calculated tokens and price
-      const { error: updatePaymentError } = await supabase
-        .from('payment')
-        .update({ 
-          tokens: tokens,
-          price: coinPrice
-        })
-        .eq('id', paymentRecord.id)
-
-      if (updatePaymentError) {
-        console.error('Error updating payment status:', updatePaymentError)
-      }
+      console.log(`Payment successful! Adding ${tokens} tokens to user ${paymentRecord.user_id}`)
 
       // Get current user tokens and update them
       const { data: userData, error: userFetchError } = await supabase
@@ -101,6 +69,8 @@ export async function GET(request: Request) {
       }
 
       const newTokenBalance = userData.tokens + tokens
+      
+      console.log(`User current tokens: ${userData.tokens}, Adding: ${tokens}, New balance: ${newTokenBalance}`)
       
       const { error: tokenError } = await supabase
         .from('users')

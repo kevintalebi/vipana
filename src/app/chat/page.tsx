@@ -505,7 +505,7 @@ export default function ChatPage() {
           amount: rechargeAmount,
           user_id: user.id,
           email: user.email,
-          description: `شارژ حساب ویپانا - ${rechargeAmount} ریال`
+          description: `شارژ حساب ویپانا - ${rechargeAmount} تومان`
         })
       })
 

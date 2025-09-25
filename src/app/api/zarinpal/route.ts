@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     // Set callback URL
     const cbUrl = callback_url || `${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/api/payment/callback`
-    const desc = description || 'شارژ حساب ویپانا'
+    const desc = description || `شارژ حساب ویپانا - ${amount} تومان`
 
     const payload = {
       merchant_id: merchantId,
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
     }
 
     console.log('Zarinpal request payload:', payload)
+    console.log('Payment data:', { amount, user_id, email, description })
 
     const zarinpalRes = await fetch('https://api.zarinpal.com/pg/v4/payment/request.json', {
       method: 'POST',
@@ -79,16 +80,39 @@ export async function POST(request: Request) {
       const authority: string = data.authority
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
       
+      // Get current coin price and calculate tokens
+      const { data: priceData, error: priceError } = await supabase
+        .from('price')
+        .select('price')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (priceError || !priceData) {
+        console.error('Error fetching coin price:', priceError)
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در دریافت قیمت سکه' 
+        }, { status: 500 })
+      }
+
+      const coinPrice = priceData.price
+      const tokens = Math.floor(amount / coinPrice)
+
       // Save payment record to database
       try {
+        const paymentData = {
+          user_id: user_id,
+          total_pay: amount,
+          price: coinPrice,
+          tokens: tokens
+        }
+        
+        console.log('Inserting payment record:', paymentData)
+        
         const { error: dbError } = await supabase
           .from('payment')
-          .insert({
-            user_id: user_id,
-            total_pay: amount,
-            price: 0, // Will be calculated and updated later
-            tokens: 0 // Will be calculated and updated later
-          })
+          .insert(paymentData)
 
         if (dbError) {
           console.error('Database error:', dbError)
