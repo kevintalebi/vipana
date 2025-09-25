@@ -81,7 +81,7 @@ export async function GET(request: Request) {
 
       console.log(`Payment successful! Adding ${tokens} tokens to user ${paymentRecord.user_id}`)
       
-      // Check if this payment was already processed
+      // Check if this payment was already processed (if status column exists)
       if (paymentRecord.status === 'success') {
         console.log('Payment already processed, skipping token update')
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=payment_already_processed`)
@@ -122,17 +122,20 @@ export async function GET(request: Request) {
       } else {
         console.log(`Successfully added ${tokens} tokens to user ${paymentRecord.user_id}`)
         
-        // Mark payment as successful
-        const { error: statusError } = await supabase
-          .from('payment')
-          .update({ status: 'success' })
-          .eq('id', paymentRecord.id)
-        
-        if (statusError) {
-          console.error('Error updating payment status:', statusError)
-          // Don't fail here, tokens were already updated
-        } else {
-          console.log('Payment status updated to success')
+        // Mark payment as successful (if status column exists)
+        try {
+          const { error: statusError } = await supabase
+            .from('payment')
+            .update({ status: 'success' })
+            .eq('id', paymentRecord.id)
+          
+          if (statusError) {
+            console.log('Status column may not exist, continuing without status update:', statusError)
+          } else {
+            console.log('Payment status updated to success')
+          }
+        } catch (statusError) {
+          console.log('Status update failed, continuing without it:', statusError)
         }
       }
 
@@ -141,19 +144,23 @@ export async function GET(request: Request) {
       // Payment failed
       console.error('Payment verification failed:', verifyData)
       
-      // Update payment record to mark as failed
-      const { error: statusError } = await supabase
-        .from('payment')
-        .update({ 
-          status: 'failed',
-          tokens: 0
-        })
-        .eq('id', paymentRecord.id)
-      
-      if (statusError) {
-        console.error('Error updating payment status to failed:', statusError)
-      } else {
-        console.log('Payment status updated to failed')
+      // Update payment record to mark as failed (if status column exists)
+      try {
+        const { error: statusError } = await supabase
+          .from('payment')
+          .update({ 
+            status: 'failed',
+            tokens: 0
+          })
+          .eq('id', paymentRecord.id)
+        
+        if (statusError) {
+          console.log('Status column may not exist, continuing without status update:', statusError)
+        } else {
+          console.log('Payment status updated to failed')
+        }
+      } catch (statusError) {
+        console.log('Status update failed, continuing without it:', statusError)
       }
 
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=payment_verification_failed`)
