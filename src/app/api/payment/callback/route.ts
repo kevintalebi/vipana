@@ -105,9 +105,23 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'https://vipana.ir'}/chat?error=user_fetch_failed`)
       }
 
-      const newTokenBalance = userData.tokens + tokens
+      // Ensure both values are numbers
+      const currentTokens = Number(userData.tokens) || 0
+      const tokensToAdd = Number(tokens) || 0
+      const newTokenBalance = currentTokens + tokensToAdd
       
-      console.log(`User current tokens: ${userData.tokens}, Adding: ${tokens}, New balance: ${newTokenBalance}`)
+      console.log('Token calculation details:', {
+        userDataTokens: userData.tokens,
+        userDataTokensType: typeof userData.tokens,
+        paymentTokens: tokens,
+        paymentTokensType: typeof tokens,
+        currentTokens: currentTokens,
+        tokensToAdd: tokensToAdd,
+        newTokenBalance: newTokenBalance,
+        newTokenBalanceType: typeof newTokenBalance
+      })
+      
+      console.log(`User current tokens: ${currentTokens}, Adding: ${tokensToAdd}, New balance: ${newTokenBalance}`)
       
       const { error: tokenError } = await supabase
         .from('users')
