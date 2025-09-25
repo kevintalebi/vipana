@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     // Get current coin price and calculate tokens FIRST
     console.log('Fetching coin price from database...')
     
-    let priceData: any
+    let priceData: { price: number } | null
     try {
       const { data, error: priceError } = await supabase
         .from('price')
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     
     console.log('Inserting payment record:', paymentData)
     
-    let insertedPayment: any
+    let insertedPayment: Array<{ id: number; user_id: string; total_pay: number; price: number; tokens: number }> | null
     try {
       const { data, error: dbError } = await supabase
         .from('payment')
