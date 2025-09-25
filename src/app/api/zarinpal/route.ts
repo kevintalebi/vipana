@@ -70,21 +70,43 @@ export async function POST(request: Request) {
 
     // Get current coin price and calculate tokens FIRST
     console.log('Fetching coin price from database...')
-    const { data: priceData, error: priceError } = await supabase
-      .from('price')
-      .select('price')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    
+    let priceData: any
+    try {
+      const { data, error: priceError } = await supabase
+        .from('price')
+        .select('price')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
 
-    console.log('Price query result:', { priceData, priceError })
+      console.log('Price query result:', { data, priceError })
 
-    if (priceError || !priceData) {
-      console.error('Error fetching coin price:', priceError)
+      if (priceError) {
+        console.error('Price query error:', priceError)
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در دریافت قیمت سکه',
+          details: priceError.message,
+          code: priceError.code
+        }, { status: 500 })
+      }
+
+      if (!data) {
+        console.error('No price data found')
+        return NextResponse.json({ 
+          success: false, 
+          error: 'داده قیمت یافت نشد' 
+        }, { status: 500 })
+      }
+
+      priceData = data
+    } catch (priceQueryError) {
+      console.error('Price query exception:', priceQueryError)
       return NextResponse.json({ 
         success: false, 
-        error: 'خطا در دریافت قیمت سکه',
-        details: priceError?.message || 'No price data found'
+        error: 'خطا در دسترسی به جدول قیمت',
+        details: priceQueryError instanceof Error ? priceQueryError.message : 'Unknown error'
       }, { status: 500 })
     }
 
@@ -101,30 +123,49 @@ export async function POST(request: Request) {
     
     console.log('Inserting payment record:', paymentData)
     
-    const { data: insertedPayment, error: dbError } = await supabase
-      .from('payment')
-      .insert(paymentData)
-      .select()
+    let insertedPayment: any
+    try {
+      const { data, error: dbError } = await supabase
+        .from('payment')
+        .insert(paymentData)
+        .select()
 
-    console.log('Database insertion result:', { insertedPayment, dbError })
+      console.log('Database insertion result:', { data, dbError })
 
-    if (dbError) {
-      console.error('Database error:', dbError)
-      console.error('Database error details:', {
-        message: dbError.message,
-        code: dbError.code,
-        hint: dbError.hint,
-        details: dbError.details
-      })
+      if (dbError) {
+        console.error('Database error:', dbError)
+        console.error('Database error details:', {
+          message: dbError.message,
+          code: dbError.code,
+          hint: dbError.hint,
+          details: dbError.details
+        })
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
+          details: dbError.message,
+          code: dbError.code
+        }, { status: 500 })
+      }
+
+      if (!data || data.length === 0) {
+        console.error('No data returned from insert')
+        return NextResponse.json({ 
+          success: false, 
+          error: 'خطا در ثبت رکورد پرداخت' 
+        }, { status: 500 })
+      }
+
+      insertedPayment = data
+      console.log('Payment record inserted successfully:', insertedPayment)
+    } catch (dbInsertError) {
+      console.error('Database insert exception:', dbInsertError)
       return NextResponse.json({ 
         success: false, 
-        error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
-        details: dbError.message,
-        code: dbError.code
+        error: 'خطا در دسترسی به پایگاه داده',
+        details: dbInsertError instanceof Error ? dbInsertError.message : 'Unknown error'
       }, { status: 500 })
     }
-
-    console.log('Payment record inserted successfully:', insertedPayment)
 
     console.log('Zarinpal request payload:', payload)
     console.log('Payment data:', { amount, user_id, email, description })
