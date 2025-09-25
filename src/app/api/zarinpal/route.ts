@@ -21,8 +21,13 @@ interface ZarinpalResponse {
 
 export async function POST(request: Request) {
   try {
+    console.log('Zarinpal API called')
+    
     const body = await request.json().catch(() => ({} as RequestBody))
+    console.log('Request body:', body)
+    
     const { amount, callback_url, description, email, mobile, user_id } = body || {}
+    console.log('Extracted parameters:', { amount, user_id, email, description })
 
     // Validation
     if (!amount || amount <= 0) {
@@ -114,21 +119,25 @@ export async function POST(request: Request) {
       const authority: string = data.authority
       const gatewayUrl = `https://www.zarinpal.com/pg/StartPay/${authority}`
       
-      // Get current coin price and calculate tokens
-      const { data: priceData, error: priceError } = await supabase
-        .from('price')
-        .select('price')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+    // Get current coin price and calculate tokens
+    console.log('Fetching coin price from database...')
+    const { data: priceData, error: priceError } = await supabase
+      .from('price')
+      .select('price')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
 
-      if (priceError || !priceData) {
-        console.error('Error fetching coin price:', priceError)
-        return NextResponse.json({ 
-          success: false, 
-          error: 'خطا در دریافت قیمت سکه' 
-        }, { status: 500 })
-      }
+    console.log('Price query result:', { priceData, priceError })
+
+    if (priceError || !priceData) {
+      console.error('Error fetching coin price:', priceError)
+      return NextResponse.json({ 
+        success: false, 
+        error: 'خطا در دریافت قیمت سکه',
+        details: priceError?.message || 'No price data found'
+      }, { status: 500 })
+    }
 
       const coinPrice = priceData.price
       const tokens = Math.floor(amount / coinPrice)
@@ -148,11 +157,21 @@ export async function POST(request: Request) {
         .insert(paymentData)
         .select()
 
+      console.log('Database insertion result:', { insertedPayment, dbError })
+
       if (dbError) {
         console.error('Database error:', dbError)
+        console.error('Database error details:', {
+          message: dbError.message,
+          code: dbError.code,
+          hint: dbError.hint,
+          details: dbError.details
+        })
         return NextResponse.json({ 
           success: false, 
-          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده' 
+          error: 'خطا در ثبت اطلاعات پرداخت در پایگاه داده',
+          details: dbError.message,
+          code: dbError.code
         }, { status: 500 })
       }
 
@@ -194,10 +213,15 @@ export async function POST(request: Request) {
 
   } catch (error: unknown) {
     console.error('Zarinpal API error:', error)
+    console.error('Error type:', typeof error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack')
+    
     const errorMessage = error instanceof Error ? error.message : 'خطای غیرمنتظره'
     return NextResponse.json({ 
       success: false, 
-      error: errorMessage 
+      error: errorMessage,
+      errorType: typeof error,
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 })
   }
 }
