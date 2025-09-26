@@ -5,6 +5,7 @@ import { Send, Settings, User, X, Zap, Download, Upload, Image as ImageIcon } fr
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { consumeTokens } from '@/lib/consumetokens';
 
 interface Message {
   id: string;
@@ -1490,171 +1491,66 @@ export default function ChatPage() {
     }
   };
 
-  // Function to deduct tokens for image generation
-  const deductTokensForImageGeneration = async () => {
+  // Function to consume tokens for AI services (image and video)
+  const consumeTokensForService = async (serviceType: 'عکس' | 'ویدیو') => {
     try {
       if (!user?.id || !selectedModel) {
-        console.log('Cannot deduct tokens: missing user ID or selected model');
+        console.log('Cannot consume tokens: missing user ID or selected model');
         return;
       }
 
-      console.log('Starting token deduction for image generation...');
+      console.log(`🪙 Starting token consumption for ${serviceType} generation...`);
       console.log('Selected model:', selectedModel);
       console.log('User ID:', user.id);
 
       // Get service price from services table
       console.log('Querying services table with:');
-      console.log('- model:', selectedModel);
-      console.log('- type: عکس');
+      console.log('- Type:', serviceType);
+      console.log('- Model:', selectedModel);
       
       const { data: serviceData, error: serviceError } = await supabase
         .from('services')
         .select('price')
-        .eq('model', selectedModel)
-        .eq('type', 'عکس')
+        .eq('type', serviceType)
+        .eq('name', selectedModel)
         .single();
-
-      console.log('Service query result:');
-      console.log('- data:', serviceData);
-      console.log('- error:', serviceError);
 
       if (serviceError) {
         console.error('Error fetching service price:', serviceError);
-        console.error('Error details:', JSON.stringify(serviceError, null, 2));
         return;
       }
 
       if (!serviceData) {
-        console.error('Service not found for model:', selectedModel);
-        console.log('Trying alternative query with different field names...');
+        console.log('No service found for model:', selectedModel);
+        return;
+      }
+
+      const servicePrice = Number(serviceData.price);
+      console.log('Service price:', servicePrice);
+
+      if (servicePrice <= 0) {
+        console.log('Invalid service price:', servicePrice);
+        return;
+      }
+
+      // Use the consumeTokens function
+      const result = await consumeTokens(user.id, selectedModel, servicePrice);
+
+      if (result.success) {
+        console.log('✅ Tokens consumed successfully!');
+        console.log('New token balance:', result.newTokenBalance);
         
-        // Try alternative query with different field names
-        const { data: altServiceData, error: altServiceError } = await supabase
-          .from('services')
-          .select('*')
-          .eq('model_name', selectedModel)
-          .eq('type', 'عکس')
-          .single();
-          
-        console.log('Alternative query result:');
-        console.log('- data:', altServiceData);
-        console.log('- error:', altServiceError);
-        
-        if (altServiceData) {
-          console.log('Found service with alternative query, using it...');
-          const price = parseFloat(altServiceData.price || altServiceData.cost || altServiceData.amount || '0');
-          console.log('Service price from alternative query:', price);
-          
-          if (price <= 0) {
-            console.log('No valid price found in alternative query');
-            return;
-          }
-          
-          // Continue with the rest of the token deduction logic
-          await processTokenDeduction(price);
-          return;
+        // Update local state
+        if (result.newTokenBalance !== undefined) {
+          updateUserTokens(result.newTokenBalance);
         }
-        
-        console.error('Service not found with any query method');
-        return;
+      } else {
+        console.error('❌ Token consumption failed:', result.error);
+        alert(`خطا در کسر توکن: ${result.error}`);
       }
-
-      // Get the price (try different possible fields)
-      const price = parseFloat((serviceData as { price?: string; cost?: string; amount?: string }).price || 
-                               (serviceData as { price?: string; cost?: string; amount?: string }).cost || 
-                               (serviceData as { price?: string; cost?: string; amount?: string }).amount || '0');
-      console.log('Service price:', price);
-
-      if (price <= 0) {
-        console.log('No price to deduct or invalid price');
-        return;
-      }
-
-      // Process token deduction
-      await processTokenDeduction(price);
 
     } catch (error) {
-      console.error('Error in token deduction:', error);
-    }
-  };
-
-  // Helper function to process token deduction
-  const processTokenDeduction = async (price: number) => {
-    try {
-      console.log('Processing token deduction for price:', price);
-
-      // Get current user tokens
-      if (!user?.id) {
-        console.error('User ID not available');
-        return;
-      }
-      
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('tokens')
-        .eq('user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user tokens:', userError);
-        return;
-      }
-
-      if (!userData) {
-        console.error('User not found');
-        return;
-      }
-
-      const currentTokens = parseFloat(userData.tokens || '0');
-      console.log('Current user tokens:', currentTokens);
-
-      if (currentTokens < price) {
-        console.error('Insufficient tokens. Required:', price, 'Available:', currentTokens);
-        // Show error message to user
-        setMessages(prevMessages => {
-          const errorMessage: Message = {
-            id: Date.now().toString() + '_token_error',
-            text: `موجودی شما کافی نیست. نیاز: ${price} توکن، موجود: ${currentTokens} توکن`,
-            isUser: false,
-            timestamp: new Date(),
-          };
-          return [...prevMessages, errorMessage];
-        });
-        return;
-      }
-
-      // Deduct tokens
-      const newTokenBalance = currentTokens - price;
-      console.log('New token balance:', newTokenBalance);
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ tokens: newTokenBalance.toString() })
-        .eq('user_id', user!.id);
-
-      if (updateError) {
-        console.error('Error updating user tokens:', updateError);
-        return;
-      }
-
-      // Update local user profile
-      setLocalUserProfile(prev => {
-        if (prev) {
-          return { ...prev, tokens: newTokenBalance };
-        }
-        return prev;
-      });
-
-      // Also update the auth context if updateUserTokens function is available
-      if (updateUserTokens) {
-        updateUserTokens(newTokenBalance);
-      }
-
-      console.log('✅ Tokens deducted successfully!');
-      console.log(`Deducted ${price} tokens. New balance: ${newTokenBalance}`);
-
-    } catch (error) {
-      console.error('Error in processTokenDeduction:', error);
+      console.error('Error in consumeTokensForService:', error);
     }
   };
 
@@ -1803,8 +1699,8 @@ export default function ChatPage() {
             setIsPolling(false);
             setInputValue('');
             
-            // Deduct tokens for successful image generation
-            await deductTokensForImageGeneration();
+            // Consume tokens for successful image generation
+            await consumeTokensForService('عکس');
             
             console.log('Setting isWaitingForResponse to false after successful image generation');
             clearTimeout(safetyTimeout);
@@ -1961,6 +1857,10 @@ export default function ChatPage() {
             setIsWaitingForResponse(false);
             setIsPolling(false);
             setInputValue('');
+            
+            // Consume tokens for successful video generation
+            await consumeTokensForService('ویدیو');
+            
             return;
           } else if (isFailed) {
             console.log('Video generation failed:', responseData.error);
