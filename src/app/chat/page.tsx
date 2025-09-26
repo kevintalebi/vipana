@@ -2449,8 +2449,8 @@ export default function ChatPage() {
       </div>
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="glass border-b border-cyan-500/30 px-4 sm:px-6 py-4 relative">
+        {/* Header - Fixed at top */}
+        <div className="sticky top-0 z-30 glass border-b border-cyan-500/30 px-4 sm:px-6 py-4 relative backdrop-blur-md bg-opacity-90">
           <div className="flex items-center justify-between relative">
             <div className="flex items-center space-x-3 space-x-reverse">
               <button 
@@ -2479,7 +2479,7 @@ export default function ChatPage() {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 space-y-reverse">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 space-y-reverse" style={{ paddingBottom: '20px' }}>
           {messages.map((message) => (
             <div
               key={message.id}
@@ -2688,8 +2688,8 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="glass border-t border-cyan-500/30 relative">
+        {/* Input Area - Fixed at bottom */}
+        <div className="sticky bottom-0 z-30 glass border-t border-cyan-500/30 relative backdrop-blur-md bg-opacity-90">
           <div className="px-4 sm:px-6 py-4">
             <div className="flex items-start space-x-3">
               <button
