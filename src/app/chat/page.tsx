@@ -1524,7 +1524,6 @@ export default function ChatPage() {
       console.log('- Model:', selectedModel);
       
       let serviceData = null;
-      let serviceError = null;
 
       // Try different possible column names
       const possibleQueries = [
