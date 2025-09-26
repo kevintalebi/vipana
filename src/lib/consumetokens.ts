@@ -34,6 +34,23 @@ export async function consumeTokens(
       }
     }
 
+    // Check if usage table exists, if not, we'll handle the error gracefully
+    console.log('🔍 Checking if usage table exists...')
+    const { data: tableCheck, error: tableError } = await supabase
+      .from('usage')
+      .select('*')
+      .limit(1)
+
+    if (tableError) {
+      console.error('❌ Usage table does not exist or is not accessible:', tableError)
+      return {
+        success: false,
+        error: `Usage table not found: ${tableError.message}. Please create the usage table in your database.`
+      }
+    }
+
+    console.log('✅ Usage table exists and is accessible')
+
     // Get current user token balance
     console.log('📊 Fetching current user token balance...')
     const { data: userData, error: userError } = await supabase
@@ -237,6 +254,52 @@ export async function checkTokenAvailability(
     return {
       success: false,
       hasEnoughTokens: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
+
+/**
+ * Create the usage table if it doesn't exist
+ * This function should be called during app initialization
+ */
+export async function createUsageTableIfNotExists(): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('🔧 Checking if usage table needs to be created...')
+    
+    // Try to query the table
+    const { data, error } = await supabase
+      .from('usage')
+      .select('*')
+      .limit(1)
+
+    if (error) {
+      console.log('📋 Usage table does not exist, creating it...')
+      
+      // Note: In Supabase, you typically create tables through the SQL editor or dashboard
+      // This is just a placeholder - the actual table creation should be done in Supabase dashboard
+      console.log('⚠️ Please create the usage table manually in your Supabase dashboard with this SQL:')
+      console.log(`
+        CREATE TABLE usage (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          model TEXT NOT NULL,
+          price INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+      `)
+      
+      return {
+        success: false,
+        error: 'Usage table does not exist. Please create it manually in Supabase dashboard.'
+      }
+    }
+
+    console.log('✅ Usage table already exists')
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
     }
   }

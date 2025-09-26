@@ -1494,8 +1494,13 @@ export default function ChatPage() {
   // Function to consume tokens for AI services (image and video)
   const consumeTokensForService = async (serviceType: 'عکس' | 'ویدیو') => {
     try {
+      console.log('🪙 === TOKEN CONSUMPTION DEBUG START ===');
+      
       if (!user?.id || !selectedModel) {
-        console.log('Cannot consume tokens: missing user ID or selected model');
+        console.error('❌ Cannot consume tokens: missing user ID or selected model');
+        console.log('User ID:', user?.id);
+        console.log('Selected Model:', selectedModel);
+        alert('خطا: اطلاعات کاربر یا مدل یافت نشد');
         return;
       }
 
@@ -1503,38 +1508,73 @@ export default function ChatPage() {
       console.log('Selected model:', selectedModel);
       console.log('User ID:', user.id);
 
-      // Get service price from services table
+      // First, let's check what's in the services table
+      console.log('🔍 Checking services table structure...');
+      const { data: allServices, error: allServicesError } = await supabase
+        .from('services')
+        .select('*')
+        .limit(5);
+
+      console.log('All services sample:', allServices);
+      console.log('All services error:', allServicesError);
+
+      // Get service price from services table with multiple field attempts
       console.log('Querying services table with:');
       console.log('- Type:', serviceType);
       console.log('- Model:', selectedModel);
       
-      const { data: serviceData, error: serviceError } = await supabase
-        .from('services')
-        .select('price')
-        .eq('type', serviceType)
-        .eq('name', selectedModel)
-        .single();
+      let serviceData = null;
+      let serviceError = null;
 
-      if (serviceError) {
-        console.error('Error fetching service price:', serviceError);
-        return;
+      // Try different possible column names
+      const possibleQueries = [
+        { type: 'name', model: selectedModel },
+        { type: 'model', model: selectedModel },
+        { type: 'model_name', model: selectedModel },
+        { type: 'title', model: selectedModel }
+      ];
+
+      for (const query of possibleQueries) {
+        console.log(`Trying query with ${query.type}:`, query.model);
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .eq('type', serviceType)
+          .eq(query.type, query.model)
+          .single();
+
+        if (!error && data) {
+          serviceData = data;
+          console.log(`✅ Found service with ${query.type}:`, data);
+          break;
+        } else {
+          console.log(`❌ Query with ${query.type} failed:`, error);
+        }
       }
 
       if (!serviceData) {
-        console.log('No service found for model:', selectedModel);
+        console.error('❌ No service found for model:', selectedModel);
+        console.log('Available services:', allServices);
+        alert(`خطا: سرویس برای مدل ${selectedModel} یافت نشد`);
         return;
       }
 
-      const servicePrice = Number(serviceData.price);
-      console.log('Service price:', servicePrice);
+      // Try to get price from different possible fields
+      const price = Number(serviceData.price || serviceData.cost || serviceData.amount || 0);
+      console.log('Service data:', serviceData);
+      console.log('Service price:', price);
 
-      if (servicePrice <= 0) {
-        console.log('Invalid service price:', servicePrice);
+      if (price <= 0) {
+        console.error('❌ Invalid service price:', price);
+        alert(`خطا: قیمت سرویس نامعتبر: ${price}`);
         return;
       }
 
+      console.log('🔄 Calling consumeTokens function...');
       // Use the consumeTokens function
-      const result = await consumeTokens(user.id, selectedModel, servicePrice);
+      const result = await consumeTokens(user.id, selectedModel, price);
+
+      console.log('🔄 consumeTokens result:', result);
 
       if (result.success) {
         console.log('✅ Tokens consumed successfully!');
@@ -1544,13 +1584,27 @@ export default function ChatPage() {
         if (result.newTokenBalance !== undefined) {
           updateUserTokens(result.newTokenBalance);
         }
+        
+        // Show success message to user
+        setMessages(prevMessages => {
+          const successMessage: Message = {
+            id: Date.now().toString() + '_token_success',
+            text: `✅ ${price} توکن کسر شد. موجودی جدید: ${result.newTokenBalance}`,
+            isUser: false,
+            timestamp: new Date(),
+          };
+          return [...prevMessages, successMessage];
+        });
       } else {
         console.error('❌ Token consumption failed:', result.error);
         alert(`خطا در کسر توکن: ${result.error}`);
       }
 
+      console.log('🪙 === TOKEN CONSUMPTION DEBUG END ===');
+
     } catch (error) {
-      console.error('Error in consumeTokensForService:', error);
+      console.error('❌ Error in consumeTokensForService:', error);
+      alert(`خطا در سیستم توکن: ${error instanceof Error ? error.message : 'خطای نامشخص'}`);
     }
   };
 
