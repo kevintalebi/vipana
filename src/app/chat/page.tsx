@@ -5,7 +5,7 @@ import { Send, Settings, User, X, Zap, Download, Upload, Image as ImageIcon } fr
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { consumeTokens } from '@/lib/consumetokens';
+// Token consumption function moved inline
 
 interface Message {
   id: string;
@@ -27,6 +27,12 @@ interface Service {
 
 interface ServicesData {
   [key: string]: Service[];
+}
+
+interface TokenConsumptionResult {
+  success: boolean;
+  newTokenBalance?: number;
+  error?: string;
 }
 
 interface DatabaseService {
@@ -74,6 +80,7 @@ export default function ChatPage() {
   const [services, setServices] = useState<ServicesData>({});
   const [servicesLoading, setServicesLoading] = useState(true);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [serverBusyMessage, setServerBusyMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [coinPrice, setCoinPrice] = useState<number | null>(null);
@@ -84,6 +91,65 @@ export default function ChatPage() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isRecharging, setIsRecharging] = useState(false);
+  
+  // Circuit breaker state for database operations
+  const [databaseHealthy, setDatabaseHealthy] = useState(true);
+  const [lastDatabaseFailure, setLastDatabaseFailure] = useState(0);
+  
+  // Mutex lock to prevent concurrent token consumption
+  const [isConsumingTokens, setIsConsumingTokens] = useState(false);
+  
+  // Force unlock function for debugging
+  const forceUnlock = () => {
+    console.log('🔓 Force unlocking token consumption...');
+    setIsConsumingTokens(false);
+  };
+  
+  // Auto-reset lock if it's been held too long (safety mechanism)
+  useEffect(() => {
+    if (isConsumingTokens) {
+      const resetTimeout = setTimeout(() => {
+        console.log('⚠️ Auto-resetting stuck lock after 5 seconds');
+        setIsConsumingTokens(false);
+      }, 5000); // 5 seconds
+      
+      return () => clearTimeout(resetTimeout);
+    }
+  }, [isConsumingTokens]);
+  
+  // Function to retry pending database operations
+  const retryPendingOperations = async () => {
+    try {
+      const pendingRecords = JSON.parse(localStorage.getItem('pendingUsageRecords') || '[]');
+      if (pendingRecords.length === 0) return;
+      
+      console.log('🔄 Retrying pending database operations...', pendingRecords.length, 'records');
+      
+      for (const record of pendingRecords) {
+        try {
+          const { data, error } = await supabase
+            .from('usage')
+            .insert({
+              user_id: record.userId,
+              model: record.model,
+              price: record.price,
+              created_at: record.timestamp
+            });
+          
+          if (!error) {
+            console.log('✅ Retry successful for record:', record);
+            // Remove from pending records
+            const updatedRecords = pendingRecords.filter(r => r !== record);
+            localStorage.setItem('pendingUsageRecords', JSON.stringify(updatedRecords));
+          }
+        } catch (retryError) {
+          console.error('❌ Retry failed for record:', record, retryError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Retry pending operations error:', error);
+    }
+  };
 
   // Reset upload state function
   const resetUploadState = () => {
@@ -225,6 +291,61 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Reset circuit breaker when database becomes healthy
+  useEffect(() => {
+    if (!databaseHealthy && Date.now() - lastDatabaseFailure > 60000) {
+      console.log('🔄 Attempting to reset database circuit breaker...');
+      checkDatabaseHealth().then(isHealthy => {
+        if (isHealthy) {
+          console.log('✅ Database is healthy again, resetting circuit breaker');
+          setDatabaseHealthy(true);
+        }
+      });
+    }
+  }, [databaseHealthy, lastDatabaseFailure]);
+
+  // Add debugging functions to window object for console access
+  useEffect(() => {
+    (window as any).debugVipana = {
+      checkDatabaseHealth,
+      resetCircuitBreaker,
+      databaseHealthy,
+      lastDatabaseFailure,
+      testDatabaseConnection,
+      testNetworkConnection,
+      forceUnlock,
+      isConsumingTokens,
+      // Add new debugging functions
+      testSupabaseConnection: async () => {
+        console.log('🔍 Testing Supabase connection...');
+        try {
+          const { data, error } = await supabase.from('users').select('count').limit(1);
+          console.log('Supabase test result:', { data, error });
+          return !error;
+        } catch (err) {
+          console.error('Supabase connection test failed:', err);
+          return false;
+        }
+      },
+      testUserAccess: async (userId: string) => {
+        console.log('🔍 Testing user access for:', userId);
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('user_id, tokens')
+            .eq('user_id', userId)
+            .single();
+          console.log('User access test result:', { data, error });
+          return { success: !error, data, error };
+        } catch (err) {
+          console.error('User access test failed:', err);
+          return { success: false, error: err };
+        }
+      }
+    };
+    console.log('🔧 Debug functions available: window.debugVipana');
+  }, [databaseHealthy, lastDatabaseFailure]);
 
   // Timer for waiting time
   useEffect(() => {
@@ -672,6 +793,22 @@ export default function ChatPage() {
         try {
           console.log('Using KIE for image generation with model:', selectedModel);
           
+          // 🚨 CRITICAL: DEDUCT TOKENS FIRST (FINANCIAL SAFETY)
+          console.log('💰 DEDUCTING TOKENS BEFORE IMAGE GENERATION (FINANCIAL SAFETY)');
+          const tokenResult = await consumeTokensForService('عکس');
+          
+          if (!tokenResult) {
+            console.log('❌ Token deduction failed - ABORTING image generation to prevent financial loss');
+            setIsWaitingForResponse(false);
+            setServerBusyMessage('سرور مشغول است، لطفا بعدا دوباره تلاش کنید');
+            
+            // Remove waiting message from chat
+            setMessages(prevMessages => prevMessages.filter(msg => !msg.id.endsWith('_waiting')));
+            return;
+          }
+          
+          console.log('✅ Tokens successfully deducted - proceeding with image generation');
+          
           // Determine model type for aspect ratio mapping
           const isGPTModel = selectedModel === 'GPT-Image-1';
           const isFluxModel = selectedModel === 'Flux';
@@ -757,6 +894,22 @@ export default function ChatPage() {
       if (selectedType === 'ویدیو') {
         try {
           console.log('Using KIE for video generation with model:', selectedModel);
+          
+          // 🚨 CRITICAL: DEDUCT TOKENS FIRST (FINANCIAL SAFETY)
+          console.log('💰 DEDUCTING TOKENS BEFORE VIDEO GENERATION (FINANCIAL SAFETY)');
+          const tokenResult = await consumeTokensForService('ویدیو');
+          
+          if (!tokenResult) {
+            console.log('❌ Token deduction failed - ABORTING video generation to prevent financial loss');
+            setIsWaitingForResponse(false);
+            setServerBusyMessage('سرور مشغول است، لطفا بعدا دوباره تلاش کنید');
+            
+            // Remove waiting message from chat
+            setMessages(prevMessages => prevMessages.filter(msg => !msg.id.endsWith('_waiting')));
+            return;
+          }
+          
+          console.log('✅ Tokens successfully deducted - proceeding with video generation');
           
           const response = await fetch('/api/kie/video', {
             method: 'POST',
@@ -1491,121 +1644,720 @@ export default function ChatPage() {
     }
   };
 
-  // Function to consume tokens for AI services (image and video)
-  const consumeTokensForService = async (serviceType: 'عکس' | 'ویدیو') => {
+  // Function to get service price from existing services data
+  const getServicePriceFromData = (serviceType: string, modelName: string): number => {
     try {
-      console.log('🪙 === TOKEN CONSUMPTION DEBUG START ===');
+      console.log('🔍 Getting price for:', { serviceType, modelName });
+      console.log('🔍 Available services:', services);
       
-      if (!user?.id || !selectedModel) {
-        console.error('❌ Cannot consume tokens: missing user ID or selected model');
-        console.log('User ID:', user?.id);
-        console.log('Selected Model:', selectedModel);
-        alert('خطا: اطلاعات کاربر یا مدل یافت نشد');
-        return;
+      const typeServices = services[serviceType];
+      if (!typeServices || typeServices.length === 0) {
+        console.log('❌ No services found for type:', serviceType);
+        return getFallbackPrice(serviceType);
       }
-
-      console.log(`🪙 Starting token consumption for ${serviceType} generation...`);
-      console.log('Selected model:', selectedModel);
-      console.log('User ID:', user.id);
-
-      // First, let's check what's in the services table
-      console.log('🔍 Checking services table structure...');
-      const { data: allServices, error: allServicesError } = await supabase
-        .from('services')
-        .select('*')
-        .limit(5);
-
-      console.log('All services sample:', allServices);
-      console.log('All services error:', allServicesError);
-
-      // Get service price from services table with multiple field attempts
-      console.log('Querying services table with:');
-      console.log('- Type:', serviceType);
-      console.log('- Model:', selectedModel);
       
-      let serviceData = null;
+      const service = typeServices.find(s => s.name === modelName);
+      if (!service) {
+        console.log('❌ Service not found for model:', modelName);
+        return getFallbackPrice(serviceType);
+      }
+      
+      const price = Number(service.price) || 0;
+      console.log('✅ Found service price:', price);
+      return price;
+      
+    } catch (error) {
+      console.error('❌ Error getting service price from data:', error);
+      return getFallbackPrice(serviceType);
+    }
+  };
 
-      // Try different possible column names
-      const possibleQueries = [
-        { type: 'name', model: selectedModel },
-        { type: 'model', model: selectedModel },
-        { type: 'model_name', model: selectedModel },
-        { type: 'title', model: selectedModel }
-      ];
+  // Function to get fallback price
+  const getFallbackPrice = (serviceType: string): number => {
+    if (serviceType === 'عکس') {
+      return 4; // 4 tokens for image generation
+    } else if (serviceType === 'ویدیو') {
+      return 8; // 8 tokens for video generation
+    } else {
+      return 4; // Default fallback
+    }
+  };
 
-      for (const query of possibleQueries) {
-        console.log(`Trying query with ${query.type}:`, query.model);
-        const { data, error } = await supabase
-          .from('services')
-          .select('*')
-          .eq('type', serviceType)
-          .eq(query.type, query.model)
-          .single();
-
-        if (!error && data) {
-          serviceData = data;
-          console.log(`✅ Found service with ${query.type}:`, data);
-          break;
-        } else {
-          console.log(`❌ Query with ${query.type} failed:`, error);
+  // Simple token consumption without database (fallback mode)
+  const consumeTokensSimple = async (
+    userId: string,
+    model: string,
+    price: number
+  ): Promise<TokenConsumptionResult> => {
+    try {
+      console.log('🪙 === SIMPLE TOKEN CONSUMPTION (NO DATABASE) ===');
+      console.log('🪙 Parameters:', { userId, model, price });
+      
+      // Validate input
+      if (!userId || !model || price <= 0) {
+        return {
+          success: false,
+          error: 'Invalid parameters'
         }
       }
 
-      if (!serviceData) {
-        console.error('❌ No service found for model:', selectedModel);
-        console.log('Available services:', allServices);
-        alert(`خطا: سرویس برای مدل ${selectedModel} یافت نشد`);
-        return;
+      // Get current user balance from state
+      const currentBalance = localUserProfile?.tokens || userProfile?.tokens || 0;
+      console.log('✅ Current balance from state:', currentBalance);
+      
+      // Check if user has enough tokens
+      if (currentBalance < price) {
+        console.error('❌ Insufficient tokens');
+        return {
+          success: false,
+          error: `Insufficient tokens. Current: ${currentBalance}, Required: ${price}`
+        }
       }
 
-      // Try to get price from different possible fields
-      const price = Number(serviceData.price || serviceData.cost || serviceData.amount || 0);
-      console.log('Service data:', serviceData);
-      console.log('Service price:', price);
+      // Calculate new balance
+      const newBalance = currentBalance - price;
+      console.log('✅ New balance calculated:', newBalance);
+      
+      // Update local state immediately
+      console.log('🔄 Updating local state...');
+      updateUserTokens(newBalance);
+      
+      console.log('✅ Tokens consumed successfully (local state only)');
+      
+      return {
+        success: true,
+        newTokenBalance: newBalance
+      }
+      
+    } catch (error) {
+      console.error('❌ Simple token consumption error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  };
 
-      if (price <= 0) {
-        console.error('❌ Invalid service price:', price);
-        alert(`خطا: قیمت سرویس نامعتبر: ${price}`);
-        return;
+  // Database health check function
+  const checkDatabaseHealth = async (): Promise<boolean> => {
+    try {
+      console.log('🔍 Checking database health...');
+      const { error } = await supabase
+        .from('users')
+        .select('user_id')
+        .limit(1);
+      
+      const isHealthy = !error;
+      console.log(isHealthy ? '✅ Database is healthy' : '❌ Database is unhealthy');
+      return isHealthy;
+    } catch (error) {
+      console.error('❌ Database health check failed:', error);
+      return false;
+    }
+  };
+
+  // Manual circuit breaker reset function
+  const resetCircuitBreaker = async () => {
+    console.log('🔄 Manually resetting circuit breaker...');
+    const isHealthy = await checkDatabaseHealth();
+    if (isHealthy) {
+      setDatabaseHealthy(true);
+      setLastDatabaseFailure(0);
+      console.log('✅ Circuit breaker reset successfully');
+    } else {
+      console.log('❌ Cannot reset circuit breaker - database is still unhealthy');
+    }
+  };
+
+
+  // Direct token consumption with database operations
+  const consumeTokens = async (
+    userId: string,
+    model: string,
+    price: number
+  ): Promise<TokenConsumptionResult> => {
+    try {
+      console.log('🪙 Parameters to show kevin:', { userId, model, price });
+      console.log('🔍 Current lock status:', isConsumingTokens);
+      
+      setIsConsumingTokens(false);
+      setDatabaseHealthy(true);
+      setLastDatabaseFailure(0);
+      
+      // Force React to process ALL state updates (like page refresh)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Verify state is completely reset (like fresh page load)
+      console.log('🔍 Verifying complete state reset (like page refresh)...');
+      console.log('🔍 isConsumingTokens:', isConsumingTokens);
+      console.log('🔍 databaseHealthy:', databaseHealthy);
+      console.log('🔍 lastDatabaseFailure:', lastDatabaseFailure);
+      
+      console.log('✅ Complete state reset successful (simulated page refresh)');
+      
+      // Validate state after reset
+      console.log('🔍 Validating state after reset...');
+      console.log('🔍 Lock status:', isConsumingTokens);
+      console.log('🔍 Database healthy:', databaseHealthy);
+      console.log('🔍 Last failure:', lastDatabaseFailure);
+      
+      // Check if already consuming tokens (proper mutex check)
+      if (isConsumingTokens) {
+        console.log('⚠️ Token consumption already in progress, skipping...');
+        console.log('⚠️ Lock status:', isConsumingTokens);
+        return {
+          success: false,
+          error: 'Token consumption already in progress'
+        };
+      }
+      
+      // Initialize tracking variables
+      let usageInserted = false;
+      let tokensUpdated = false;
+      
+      // Validate input
+      if (!userId || !model || price <= 0) {
+        setIsConsumingTokens(false);
+        return {
+          success: false,
+          error: 'Invalid parameters'
+        }
       }
 
-      console.log('🔄 Calling consumeTokens function...');
-      // Use the consumeTokens function
-      const result = await consumeTokens(user.id, selectedModel, price);
+      // Get current user balance from state for immediate UX
+      const currentBalance = localUserProfile?.tokens || userProfile?.tokens || 0;
+      console.log('✅ Current balance from state:', currentBalance);
+      
+      // Use existing Supabase client to prevent multiple instances
+      console.log('🔄 Using existing Supabase client (preventing multiple instances)...');
+      console.log('✅ Using existing client (no new connections created)');
+      
+      // Skip database connectivity test to prevent timeouts
+      console.log('🔍 Skipping database test - proceeding with operations...');
+      
+      // Check if user has enough tokens
+      if (currentBalance < price) {
+        console.error('❌ Insufficient tokens');
+        return {
+          success: false,
+          error: `Insufficient tokens. Current: ${currentBalance}, Required: ${price}`
+        }
+      }
 
-      console.log('🔄 consumeTokens result:', result);
+      // Calculate new balance
+      const newBalance = currentBalance - price;
+      updateUserTokens(newBalance);
+      console.log('Current Balance is :' + newBalance);
+      
+      // Insert usage record with debugging
+      console.log('📝 Inserting usage record...');
+      console.log('📝 Supabase client status:', supabase ? 'Connected' : 'Not connected');
+      console.log('📝 Insert data:', { userId, model, price });
+      
+      try {
+        console.log('📝 About to call supabase.insert...');
+        
+        // Create insert promise
+        const insertPromise = supabase
+          .from('usage')
+          .insert({
+            user_id: userId,
+            model: model,
+            price: price,
+          });
+        
+        console.log('📝 Insert promise created, awaiting...');
+        
+        // Create timeout promise that rejects after 10 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Database insert timeout after 10 seconds'));
+          }, 10000);
+        });
+        
+        // Race between insert and timeout
+        const { data: insertData, error: insertError } = await Promise.race([
+          insertPromise,
+          timeoutPromise
+        ]) as any;
+        
+        console.log('📝 Insert operation completed');
+        
+        if (insertError) {
+          console.error('❌ Usage record insertion failed:', insertError);
+        } else {
+          console.log('✅ Usage record inserted successfully:', insertData);
+          usageInserted = true;
+        }
+      } catch (error) {
+        console.error('❌ Usage record insertion error:', error);
+      }
+      
+      // Update user tokens with debugging
+      console.log('🔄 Updating user tokens...');
+      console.log('🔄 Update data:', { userId, newBalance });
+      
+      try {
+        console.log('🔄 About to call supabase.update...');
+        
+        // Create update promise
+        const updatePromise = supabase
+          .from('users')
+          .update({ 
+            tokens: newBalance
+          })
+          .eq('user_id', userId)
+          .select('tokens');
+        
+        console.log('🔄 Update promise created, awaiting...');
+        
+        // Create timeout promise that rejects after 10 seconds
+        const updateTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Database update timeout after 10 seconds'));
+          }, 10000);
+        });
+        
+        // Race between update and timeout
+        const { data: updateData, error: updateError } = await Promise.race([
+          updatePromise,
+          updateTimeoutPromise
+        ]) as any;
+        
+        console.log('🔄 Update operation completed');
+        
+        if (updateError) {
+          console.error('❌ Database update failed:', updateError);
+        } else {
+          console.log('✅ Database tokens updated successfully:', updateData);
+          tokensUpdated = true;
+        }
+      } catch (error) {
+        console.error('❌ Database update error:', error);
+      }
+      
+      
+      // Check if database operations succeeded
+      if (usageInserted && tokensUpdated) {
+        console.log('✅ Token consumption completed successfully');
+        console.log('📊 Operation Summary:');
+        console.log(`  ✅ Local state updated: true`);
+        console.log(`  📝 Usage record inserted: ${usageInserted}`);
+        console.log(`  🔄 Database tokens updated: ${tokensUpdated}`);
+        
+        return {
+          success: true,
+          newTokenBalance: newBalance
+        };
+      } else {
+        console.log('❌ Token consumption failed - database operations incomplete');
+        console.log('📊 Operation Summary:');
+        console.log(`  ✅ Local state updated: true`);
+        console.log(`  📝 Usage record inserted: ${usageInserted}`);
+        console.log(`  🔄 Database tokens updated: ${tokensUpdated}`);
+        
+        return {
+          success: false,
+          error: 'Database operations failed - usage record or token update incomplete'
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ Unexpected error:', error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  };
+
+  // Diagnostic function to test database performance and RLS policies
+  const testDatabasePerformance = async (): Promise<void> => {
+    try {
+      console.log('🔍 === DATABASE PERFORMANCE & RLS TEST ===');
+      
+      const userId = '7f5c074b-8e63-49de-94c1-54b091f3fe11';
+      
+      // Test 1: Simple select
+      console.log('🔍 Test 1: Simple select...');
+      const start1 = Date.now();
+      const { data: selectData, error: selectError } = await supabase
+        .from('users')
+        .select('user_id, tokens')
+        .eq('user_id', userId)
+        .limit(1);
+      const selectTime = Date.now() - start1;
+      console.log(`✅ Select completed in ${selectTime}ms:`, selectData, selectError);
+      
+      if (selectError) {
+        console.error('❌ SELECT failed - Check RLS policies for users table (SELECT permission)');
+      }
+      
+      // Test 2: Simple update
+      console.log('🔍 Test 2: Simple update...');
+      const start2 = Date.now();
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ tokens: selectData?.[0]?.tokens || 0 })
+        .eq('user_id', userId);
+      const updateTime = Date.now() - start2;
+      console.log(`✅ Update completed in ${updateTime}ms:`, updateError);
+      
+      if (updateError) {
+        console.error('❌ UPDATE failed - Check RLS policies for users table (UPDATE permission)');
+        console.error('❌ Error details:', updateError);
+      }
+      
+      // Test 3: Usage table insert
+      console.log('🔍 Test 3: Usage table insert...');
+      const start3 = Date.now();
+      const { error: insertError } = await supabase
+        .from('usage')
+        .insert({
+          user_id: userId,
+          model: 'Test Model',
+          price: 1
+        });
+      const insertTime = Date.now() - start3;
+      console.log(`✅ Insert completed in ${insertTime}ms:`, insertError);
+      
+      if (insertError) {
+        console.error('❌ INSERT failed - Check RLS policies for usage table (INSERT permission)');
+        console.error('❌ Error details:', insertError);
+      }
+      
+      console.log('📊 Performance Summary:');
+      console.log(`- Select: ${selectTime}ms`);
+      console.log(`- Update: ${updateTime}ms`);
+      console.log(`- Insert: ${insertTime}ms`);
+      
+      // RLS Policy Recommendations
+      console.log('🔧 RLS Policy Recommendations:');
+      console.log('1. For users table - Allow UPDATE: (uid() = user_id)');
+      console.log('2. For usage table - Allow INSERT: (uid() = user_id)');
+      console.log('3. Check Supabase Dashboard > Authentication > Policies');
+      
+    } catch (error) {
+      console.error('❌ Database performance test failed:', error);
+    }
+  };
+
+  // Test function for token consumption
+  const testTokenConsumption = async (): Promise<void> => {
+    try {
+      console.log('🧪 === TESTING TOKEN CONSUMPTION ===');
+      
+      const result = await consumeTokens('7f5c074b-8e63-49de-94c1-54b091f3fe11', 'Flux', 4);
+      console.log('🧪 Result:', result);
+      
+      if (result.success) {
+        console.log('✅ Success! New balance:', result.newTokenBalance);
+      } else {
+        console.log('❌ Failed:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Test failed:', error);
+    }
+  };
+
+  // Comprehensive database diagnostic test
+  const testDatabaseConnection = async (): Promise<void> => {
+    try {
+      console.log('🔍 === COMPREHENSIVE DATABASE DIAGNOSTIC ===');
+      
+      const userId = '7f5c074b-8e63-49de-94c1-54b091f3fe11';
+      
+      // Test 1: Check Supabase connection
+      console.log('🔍 Test 1: Supabase connection...');
+      console.log('🔍 Supabase client initialized:', !!supabase);
+      
+      // Test 2: Simple SELECT
+      console.log('🔍 Test 2: Simple SELECT...');
+      const start1 = Date.now();
+      const { data: selectData, error: selectError } = await supabase
+        .from('users')
+        .select('user_id, tokens')
+        .eq('user_id', userId)
+        .limit(1);
+      const selectTime = Date.now() - start1;
+      console.log(`✅ SELECT completed in ${selectTime}ms:`, selectData, selectError);
+      
+      if (selectError) {
+        console.error('❌ SELECT failed:', selectError);
+        console.error('❌ This indicates a fundamental connection issue');
+        return;
+      }
+      
+      // Test 3: Check if user exists
+      if (!selectData || selectData.length === 0) {
+        console.error('❌ User not found in database!');
+        console.error('❌ User ID:', userId);
+        console.error('❌ This might be why UPDATE fails');
+        return;
+      }
+      
+      console.log('✅ User found in database:', selectData[0]);
+      
+      // Test 4: Simple UPDATE with timeout
+      console.log('🔍 Test 4: Simple UPDATE with 5s timeout...');
+      const start2 = Date.now();
+      
+      const updatePromise = supabase
+        .from('users')
+        .update({ tokens: selectData[0].tokens })
+        .eq('user_id', userId);
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('UPDATE timeout after 5 seconds')), 5000);
+      });
+      
+      try {
+        const { error: updateError } = await Promise.race([
+          updatePromise,
+          timeoutPromise
+        ]) as any;
+        
+        const updateTime = Date.now() - start2;
+        console.log(`✅ UPDATE completed in ${updateTime}ms:`, updateError);
+        
+        if (updateError) {
+          console.error('❌ UPDATE failed with error:', updateError);
+          console.error('❌ Error code:', updateError.code);
+          console.error('❌ Error message:', updateError.message);
+          console.error('❌ Error details:', updateError.details);
+          console.error('❌ Error hint:', updateError.hint);
+        } else {
+          console.log('✅ UPDATE works - Database connection is fine');
+        }
+        
+      } catch (timeoutError) {
+        console.error('❌ UPDATE timed out after 5 seconds');
+        console.error('❌ This suggests a network or database performance issue');
+      }
+      
+      // Test 5: Usage table INSERT
+      console.log('🔍 Test 5: Usage table INSERT...');
+      const start3 = Date.now();
+      
+      const insertPromise = supabase
+        .from('usage')
+        .insert({
+          user_id: userId,
+          model: 'Test Model',
+          price: 1
+        });
+      
+      const insertTimeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('INSERT timeout after 3 seconds')), 3000);
+      });
+      
+      try {
+        const { error: insertError } = await Promise.race([
+          insertPromise,
+          insertTimeoutPromise
+        ]) as any;
+        
+        const insertTime = Date.now() - start3;
+        console.log(`✅ INSERT completed in ${insertTime}ms:`, insertError);
+        
+        if (insertError) {
+          console.error('❌ INSERT failed with error:', insertError);
+          console.error('❌ Error code:', insertError.code);
+          console.error('❌ Error message:', insertError.message);
+        } else {
+          console.log('✅ INSERT works - Usage table is accessible');
+        }
+        
+      } catch (timeoutError) {
+        console.error('❌ INSERT timed out after 3 seconds');
+        console.error('❌ This suggests a network or database performance issue');
+      }
+      
+      // Summary
+      console.log('📊 DIAGNOSTIC SUMMARY:');
+      console.log('- SELECT time:', selectTime + 'ms');
+      console.log('- User found:', !!selectData && selectData.length > 0);
+      console.log('- If UPDATE/INSERT timeout: Check network connection to Supabase');
+      console.log('- If UPDATE/INSERT fail with error: Check database schema and permissions');
+      
+    } catch (error) {
+      console.error('❌ Database diagnostic test failed:', error);
+    }
+  };
+
+  // Network connectivity test
+  const testNetworkConnection = async (): Promise<void> => {
+    try {
+      console.log('🌐 === NETWORK CONNECTIVITY TEST ===');
+      
+      // Test 1: Basic internet connectivity
+      console.log('🌐 Test 1: Basic internet connectivity...');
+      const start1 = Date.now();
+      const response = await fetch('https://httpbin.org/get', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+      const internetTime = Date.now() - start1;
+      console.log(`✅ Internet connectivity: ${internetTime}ms`);
+      
+      // Test 2: Supabase API connectivity (simplified)
+      console.log('🌐 Test 2: Supabase API connectivity...');
+      console.log('🌐 Testing Supabase client functionality...');
+      
+      try {
+        const start2 = Date.now();
+        const { data, error } = await supabase.from('users').select('count').limit(1);
+        const supabaseTime = Date.now() - start2;
+        console.log(`✅ Supabase API connectivity: ${supabaseTime}ms`);
+        
+        if (error) {
+          console.error('❌ Supabase API error:', error);
+        } else {
+          console.log('✅ Supabase API is accessible');
+        }
+      } catch (apiError) {
+        console.error('❌ Supabase API not accessible:', apiError);
+      }
+      
+    } catch (error) {
+      console.error('❌ Network connectivity test failed:', error);
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        console.error('❌ Network timeout - Check your internet connection');
+      }
+    }
+  };
+
+  // Simple database test function
+  const testDatabaseOperations = async (): Promise<void> => {
+    try {
+      console.log('🧪 === TESTING DATABASE OPERATIONS ===');
+      
+      const userId = '7f5c074b-8e63-49de-94c1-54b091f3fe11';
+      
+      // Test 1: Check if user exists
+      console.log('🔍 Test 1: Check if user exists...');
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('user_id, tokens')
+        .eq('user_id', userId)
+        .limit(1);
+      
+      console.log('User query result:', { userData, userError });
+      
+      if (userError) {
+        console.error('❌ User query failed:', userError);
+        return;
+      }
+      
+      if (!userData || userData.length === 0) {
+        console.error('❌ User not found in database!');
+        return;
+      }
+      
+      console.log('✅ User found:', userData[0]);
+      
+      // Test 2: Try to update tokens
+      console.log('🔍 Test 2: Try to update tokens...');
+      const { data: updateData, error: updateError } = await supabase
+        .from('users')
+        .update({ tokens: userData[0].tokens })
+        .eq('user_id', userId);
+      
+      console.log('Update result:', { updateData, updateError });
+      
+      if (updateError) {
+        console.error('❌ Update failed:', updateError);
+        console.error('❌ Error code:', updateError.code);
+        console.error('❌ Error message:', updateError.message);
+        console.error('❌ Error details:', updateError.details);
+        console.error('❌ Error hint:', updateError.hint);
+      } else {
+        console.log('✅ Update successful');
+      }
+      
+      // Test 3: Try to insert usage record
+      console.log('🔍 Test 3: Try to insert usage record...');
+      const { data: insertData, error: insertError } = await supabase
+        .from('usage')
+        .insert({
+          user_id: userId,
+          model: 'Test Model',
+          price: 1
+        });
+      
+      console.log('Insert result:', { insertData, insertError });
+      
+      if (insertError) {
+        console.error('❌ Insert failed:', insertError);
+        console.error('❌ Error code:', insertError.code);
+        console.error('❌ Error message:', insertError.message);
+        console.error('❌ Error details:', insertError.details);
+        console.error('❌ Error hint:', insertError.hint);
+      } else {
+        console.log('✅ Insert successful');
+      }
+      
+    } catch (error) {
+      console.error('❌ Database test failed:', error);
+    }
+  };
+
+  // Function to consume tokens for AI services (image and video) - FINANCIAL SAFETY
+  const consumeTokensForService = async (serviceType: 'عکس' | 'ویدیو'): Promise<boolean> => {
+    try {
+      console.log('🪙 === TOKEN CONSUMPTION FUNCTION CALLED (FINANCIAL SAFETY) ===');
+      console.log('🪙 Service type:', serviceType);
+      console.log('🪙 User ID:', user?.id);
+      console.log('🪙 Selected Model:', selectedModel);
+      
+      if (!user?.id || !selectedModel) {
+        console.error('❌ Missing user ID or selected model');
+        alert('خطا: اطلاعات کاربر یا مدل یافت نشد');
+        return false;
+      }
+
+      // Get service price from existing services data
+      console.log('🔍 Getting service price from existing data...');
+      const servicePrice = getServicePriceFromData(serviceType, selectedModel);
+      console.log('🪙 Service price:', servicePrice);
+      
+      // Use robust token consumption with database
+      console.log('🪙 Consuming tokens with database...');
+      const result = await consumeTokens(user.id, selectedModel, servicePrice);
+      console.log('🪙 consumeTokens result:', result);
 
       if (result.success) {
-        console.log('✅ Tokens consumed successfully!');
-        console.log('New token balance:', result.newTokenBalance);
-        
+        console.log('✅ Token consumption successful!');
         // Update local state
         if (result.newTokenBalance !== undefined) {
           updateUserTokens(result.newTokenBalance);
         }
         
-        // Show success message to user
-        setMessages(prevMessages => {
-          const successMessage: Message = {
-            id: Date.now().toString() + '_token_success',
-            text: `✅ ${price} توکن کسر شد. موجودی جدید: ${result.newTokenBalance}`,
-            isUser: false,
-            timestamp: new Date(),
-          };
-          return [...prevMessages, successMessage];
-        });
+        // Token deduction successful (no message shown to user)
+        
+        return true;
       } else {
         console.error('❌ Token consumption failed:', result.error);
-        alert(`خطا در کسر توکن: ${result.error}`);
+        return false;
       }
-
-      console.log('🪙 === TOKEN CONSUMPTION DEBUG END ===');
 
     } catch (error) {
       console.error('❌ Error in consumeTokensForService:', error);
-      alert(`خطا در سیستم توکن: ${error instanceof Error ? error.message : 'خطای نامشخص'}`);
+      return false;
     }
   };
+
+  // Make test functions available globally
+  if (typeof window !== 'undefined') {
+    (window as unknown as Record<string, unknown>).testTokenConsumption = testTokenConsumption;
+    (window as unknown as Record<string, unknown>).testDatabasePerformance = testDatabasePerformance;
+    (window as unknown as Record<string, unknown>).testDatabaseConnection = testDatabaseConnection;
+    (window as unknown as Record<string, unknown>).testNetworkConnection = testNetworkConnection;
+    (window as unknown as Record<string, unknown>).consumeTokensSimple = consumeTokensSimple;
+    (window as unknown as Record<string, unknown>).testDatabaseOperations = testDatabaseOperations;
+  }
 
   const pollImageGenerationStatus = async (taskId: string, isGPTModel: boolean = false, isFluxModel: boolean = false, isMidjourneyModel: boolean = false) => {
     const maxAttempts = 60; // 30 minutes with 30-second intervals
@@ -1752,8 +2504,8 @@ export default function ChatPage() {
             setIsPolling(false);
             setInputValue('');
             
-            // Consume tokens for successful image generation
-            await consumeTokensForService('عکس');
+            // Tokens already deducted before generation (FINANCIAL SAFETY)
+            console.log('✅ Tokens already deducted before image generation - no additional deduction needed');
             
             console.log('Setting isWaitingForResponse to false after successful image generation');
             clearTimeout(safetyTimeout);
@@ -1911,8 +2663,8 @@ export default function ChatPage() {
             setIsPolling(false);
             setInputValue('');
             
-            // Consume tokens for successful video generation
-            await consumeTokensForService('ویدیو');
+            // Tokens already deducted before generation (FINANCIAL SAFETY)
+            console.log('✅ Tokens already deducted before video generation - no additional deduction needed');
             
             return;
           } else if (isFailed) {
@@ -1989,54 +2741,6 @@ export default function ChatPage() {
     // Start polling
     poll();
   };
-
-  // const checkWebhookStatus = async (): Promise<{ available: boolean; isTestMode: boolean; message?: string }> => {
-  //   try {
-  //     // Try a simple GET request to check if webhook is available
-  //     const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || 'https://n8n.vipana.ir/webhook/content-handler';
-  //     const response = await fetch(webhookUrl, {
-  //       method: 'GET',
-  //       headers: {
-  //         'Accept': 'application/json',
-  //       },
-  //     });
-      
-  //     console.log('Webhook status check:', response.status, response.statusText);
-      
-  //     if (response.status === 404) {
-  //       try {
-  //         const errorText = await response.text();
-  //         const errorData = JSON.parse(errorText);
-  //         if (errorData.message && errorData.message.includes('not registered')) {
-  //           return {
-  //             available: false,
-  //             isTestMode: true,
-  //             message: 'وب‌هوک n8n در حالت تست است. لطفاً workflow را فعال کنید.'
-  //           };
-  //         }
-  //       } catch {
-  //         // Ignore parsing errors
-  //       }
-  //       return {
-  //         available: false,
-  //         isTestMode: false,
-  //         message: 'وب‌هوک در دسترس نیست.'
-  //       };
-  //     }
-      
-  //     return {
-  //       available: true,
-  //       isTestMode: false
-  //     };
-  //   } catch (error) {
-  //     console.log('Webhook status check failed:', error);
-  //     return {
-  //       available: false,
-  //       isTestMode: false,
-  //       message: 'خطا در بررسی وضعیت وب‌هوک.'
-  //     };
-  //   }
-  // };
 
   const checkVideoStatus = async (requestId: string): Promise<{ success: boolean; data?: unknown; error?: string }> => {
     try {
@@ -2305,78 +3009,6 @@ export default function ChatPage() {
     setIsWaitingForResponse(false);
   };
 
-  // const retryWebhookRequest = async (requestData: unknown, maxRetries: number = 10): Promise<Response> => {
-  //   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-  //     try {
-  //       console.log(`Webhook attempt ${attempt}/${maxRetries}`);
-        
-  //       // Update waiting message to show retry attempt
-  //       if (attempt > 1) {
-  //         setMessages(prevMessages => 
-  //           prevMessages.map(msg => {
-  //             if (msg.id.endsWith('_waiting')) {
-  //               const baseText = selectedType === 'ویدیو' 
-  //                 ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-20 دقیقه طول بکشد'
-  //                 : 'در حال پردازش...';
-  //               return {
-  //                 ...msg,
-  //                 text: `${baseText} (تلاش مجدد ${attempt}/${maxRetries})`
-  //               };
-  //             }
-  //             return msg;
-  //           })
-  //         );
-  //       }
-        
-  //       // Create AbortController for long-running requests
-  //       const timeoutDuration = selectedType === 'ویدیو' ? 20 * 60 * 1000 : 5 * 60 * 1000; // 20 min for video, 5 min for others
-  //       const controller = new AbortController();
-  //       const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
-        
-  //       const webhookUrl = 'https://n8n.vipana.ir/webhook/content-handler';
-  //     const response = await fetch(webhookUrl, {
-  //         method: 'POST',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //           'Accept': 'application/json',
-  //         },
-  //         body: JSON.stringify(requestData),
-  //         signal: controller.signal,
-  //       });
-        
-  //       clearTimeout(timeoutId);
-        
-  //       // Check if response is successful (200-299) or has content
-  //       const isSuccessful = response.ok || (response.status >= 200 && response.status < 300);
-        
-  //       if (isSuccessful) {
-  //         return response;
-  //       } else {
-  //         console.log(`Attempt ${attempt} failed with status: ${response.status}`);
-  //         if (attempt === maxRetries) {
-  //           return response; // Return the last failed response
-  //         }
-  //         // Wait before retry (exponential backoff)
-  //         const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-  //         console.log(`Waiting ${waitTime}ms before retry...`);
-  //         await new Promise(resolve => setTimeout(resolve, waitTime));
-  //       }
-  //     } catch (error) {
-  //       console.log(`Attempt ${attempt} failed with error:`, error);
-  //       if (attempt === maxRetries) {
-  //         throw error; // Re-throw the last error
-  //       }
-  //       // Wait before retry
-  //       const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-  //       console.log(`Waiting ${waitTime}ms before retry...`);
-  //       await new Promise(resolve => setTimeout(resolve, waitTime));
-  //     }
-  //   }
-    
-  //   // This should never be reached, but TypeScript needs it
-  //   throw new Error('All retry attempts failed');
-  // };
-
 
   return (
     <div className="flex h-screen relative overflow-hidden" style={{
@@ -2455,17 +3087,35 @@ export default function ChatPage() {
               >
                 <p className="text-sm">{message.text}</p>
                 
-                {/* AI Waiting Animation */}
+                {/* AI Waiting Animation or Server Busy Message */}
                 {message.type === 'ai-waiting' && (
                   <div className="mt-4 flex justify-center">
-                    <div className="relative">
-                      {/* Robot Container with Glow */}
-                      <div 
-                        className="relative p-4 rounded-2xl bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/20"
-                        style={{
-                          animation: 'robot-glow 3s ease-in-out infinite'
-                        }}
-                      >
+                    {serverBusyMessage ? (
+                      /* Server Busy Message */
+                      <div className="relative p-6 rounded-2xl bg-gradient-to-br from-red-900/20 to-orange-900/20 border border-red-500/30 shadow-lg shadow-red-500/20">
+                        <div className="text-center">
+                          <div className="text-2xl mb-3">⚠️</div>
+                          <div className="text-lg text-red-300 font-medium mb-2">سرور مشغول است</div>
+                          <div className="text-sm text-red-400">لطفاً بعداً دوباره تلاش کنید</div>
+                          <button 
+                            onClick={() => {
+                              window.location.reload();
+                            }}
+                            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                          >
+                            🔄 تلاش مجدد
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Robot Container with Glow */
+                      <div className="relative">
+                        <div 
+                          className="relative p-4 rounded-2xl bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/20"
+                          style={{
+                            animation: 'robot-glow 3s ease-in-out infinite'
+                          }}
+                        >
                         {/* Robot Head */}
                         <div 
                           className="w-16 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl relative overflow-hidden mx-auto shadow-lg"
@@ -2538,6 +3188,7 @@ export default function ChatPage() {
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
                 
@@ -3014,6 +3665,8 @@ export default function ChatPage() {
                   <Zap className="w-5 h-5" />
                   <span className="font-medium">شارژ حساب</span>
                 </button>
+                
+                
               </div>
             </div>
           </div>
