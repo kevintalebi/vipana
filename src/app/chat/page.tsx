@@ -139,7 +139,7 @@ export default function ChatPage() {
           if (!error) {
             console.log('✅ Retry successful for record:', record);
             // Remove from pending records
-            const updatedRecords = pendingRecords.filter(r => r !== record);
+            const updatedRecords = pendingRecords.filter((r:any) => r !== record);
             localStorage.setItem('pendingUsageRecords', JSON.stringify(updatedRecords));
           }
         } catch (retryError) {
