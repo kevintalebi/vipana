@@ -48,6 +48,16 @@ interface DatabaseService {
   [key: string]: unknown;
 }
 
+interface SupabaseResponse<T = unknown> {
+  data: T | null;
+  error: {
+    code?: string;
+    message?: string;
+    details?: string;
+    hint?: string;
+  } | null;
+}
+
 interface ErrorDetails {
   status: number;
   statusText: string;
@@ -117,39 +127,6 @@ export default function ChatPage() {
     }
   }, [isConsumingTokens]);
   
-  // Function to retry pending database operations
-  const retryPendingOperations = async () => {
-    try {
-      const pendingRecords = JSON.parse(localStorage.getItem('pendingUsageRecords') || '[]');
-      if (pendingRecords.length === 0) return;
-      
-      console.log('🔄 Retrying pending database operations...', pendingRecords.length, 'records');
-      
-      for (const record of pendingRecords) {
-        try {
-          const { data, error } = await supabase
-            .from('usage')
-            .insert({
-              user_id: record.userId,
-              model: record.model,
-              price: record.price,
-              created_at: record.timestamp
-            });
-          
-          if (!error) {
-            console.log('✅ Retry successful for record:', record);
-            // Remove from pending records
-            const updatedRecords = pendingRecords.filter((r:any) => r !== record);
-            localStorage.setItem('pendingUsageRecords', JSON.stringify(updatedRecords));
-          }
-        } catch (retryError) {
-          console.error('❌ Retry failed for record:', record, retryError);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Retry pending operations error:', error);
-    }
-  };
 
   // Reset upload state function
   const resetUploadState = () => {
@@ -307,7 +284,7 @@ export default function ChatPage() {
 
   // Add debugging functions to window object for console access
   useEffect(() => {
-    (window as any).debugVipana = {
+    (window as unknown as { debugVipana: Record<string, unknown> }).debugVipana = {
       checkDatabaseHealth,
       resetCircuitBreaker,
       databaseHealthy,
@@ -345,7 +322,7 @@ export default function ChatPage() {
       }
     };
     console.log('🔧 Debug functions available: window.debugVipana');
-  }, [databaseHealthy, lastDatabaseFailure]);
+  }, [databaseHealthy, lastDatabaseFailure, isConsumingTokens]);
 
   // Timer for waiting time
   useEffect(() => {
@@ -1879,7 +1856,7 @@ export default function ChatPage() {
         const { data: insertData, error: insertError } = await Promise.race([
           insertPromise,
           timeoutPromise
-        ]) as any;
+        ]) as SupabaseResponse;
         
         console.log('📝 Insert operation completed');
         
@@ -1922,7 +1899,7 @@ export default function ChatPage() {
         const { data: updateData, error: updateError } = await Promise.race([
           updatePromise,
           updateTimeoutPromise
-        ]) as any;
+        ]) as SupabaseResponse;
         
         console.log('🔄 Update operation completed');
         
@@ -2117,7 +2094,7 @@ export default function ChatPage() {
         const { error: updateError } = await Promise.race([
           updatePromise,
           timeoutPromise
-        ]) as any;
+        ]) as SupabaseResponse;
         
         const updateTime = Date.now() - start2;
         console.log(`✅ UPDATE completed in ${updateTime}ms:`, updateError);
@@ -2132,7 +2109,7 @@ export default function ChatPage() {
           console.log('✅ UPDATE works - Database connection is fine');
         }
         
-      } catch (timeoutError) {
+      } catch {
         console.error('❌ UPDATE timed out after 5 seconds');
         console.error('❌ This suggests a network or database performance issue');
       }
@@ -2157,7 +2134,7 @@ export default function ChatPage() {
         const { error: insertError } = await Promise.race([
           insertPromise,
           insertTimeoutPromise
-        ]) as any;
+        ]) as SupabaseResponse;
         
         const insertTime = Date.now() - start3;
         console.log(`✅ INSERT completed in ${insertTime}ms:`, insertError);
@@ -2170,7 +2147,7 @@ export default function ChatPage() {
           console.log('✅ INSERT works - Usage table is accessible');
         }
         
-      } catch (timeoutError) {
+      } catch {
         console.error('❌ INSERT timed out after 3 seconds');
         console.error('❌ This suggests a network or database performance issue');
       }
@@ -2195,7 +2172,7 @@ export default function ChatPage() {
       // Test 1: Basic internet connectivity
       console.log('🌐 Test 1: Basic internet connectivity...');
       const start1 = Date.now();
-      const response = await fetch('https://httpbin.org/get', { 
+      await fetch('https://httpbin.org/get', { 
         method: 'GET',
         signal: AbortSignal.timeout(5000)
       });
@@ -2208,7 +2185,7 @@ export default function ChatPage() {
       
       try {
         const start2 = Date.now();
-        const { data, error } = await supabase.from('users').select('count').limit(1);
+        const { error } = await supabase.from('users').select('count').limit(1);
         const supabaseTime = Date.now() - start2;
         console.log(`✅ Supabase API connectivity: ${supabaseTime}ms`);
         
