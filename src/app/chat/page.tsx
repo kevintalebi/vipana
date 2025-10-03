@@ -626,7 +626,7 @@ export default function ChatPage() {
           amount: rechargeAmount,
           user_id: user.id,
           email: user.email,
-          description: `شارژ حساب ویپانا - ${rechargeAmount} تومان`
+          description: `شارژ حساب ویپانا - ${rechargeAmount} ریال`
         }),
         signal: controller.signal
       })
@@ -3631,7 +3631,7 @@ export default function ChatPage() {
                 </div>
                 <p className="text-sm text-cyan-300 text-center mt-1 mb-2">
                   {coinPrice !== null
-                    ? `قیمت هر سکه معادل ${coinPrice.toLocaleString('fa-IR')} تومان می‌باشد`
+                    ? `قیمت هر سکه معادل ${coinPrice.toLocaleString('fa-IR')} ریال می‌باشد`
                     : 'در حال دریافت قیمت هر سکه...'}
                 </p>
                 <button
@@ -3672,7 +3672,7 @@ export default function ChatPage() {
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <label className="block text-sm font-medium text-cyan-300 mb-1">مبلغ افزایش شارژ (تومان)</label>
+                <label className="block text-sm font-medium text-cyan-300 mb-1">مبلغ افزایش شارژ (ریال)</label>
                 <div className="relative">
                   <input
                     type="number"
