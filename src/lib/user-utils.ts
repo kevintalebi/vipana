@@ -130,9 +130,6 @@ export async function upsertUserProfile(user: User): Promise<UserProfile | null>
           console.error('Error details:', error.details)
           console.error('Error hint:', error.hint)
           
-          // Show alert for immediate debugging
-          alert(`Database Insert Error:\nCode: ${error.code || 'No code'}\nMessage: ${error.message || 'No message'}\nDetails: ${error.details || 'No details'}`)
-          
           return null
         }
 
