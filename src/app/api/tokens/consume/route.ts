@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           p_user_id: userId,
           p_model: model,
           p_price: price,
-        }, { signal: controller.signal as unknown as undefined })
+        })
         clearTimeout(timeout)
         return { data, error }
       } catch (e) {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       if (!error) {
         const newBalance = Array.isArray(data) && data[0]?.new_balance != null
           ? Number(data[0].new_balance)
-          : (typeof (data as any)?.new_balance === 'number' ? (data as any).new_balance : undefined)
+          : (typeof (data as Record<string, unknown>)?.new_balance === 'number' ? (data as Record<string, unknown>).new_balance : undefined)
         if (typeof newBalance !== 'number') {
           return NextResponse.json({ success: false, error: 'Malformed RPC response' }, { status: 500 })
         }

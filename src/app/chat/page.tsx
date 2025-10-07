@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Settings, User, X, Zap, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1716,7 +1716,7 @@ export default function ChatPage() {
   };
 
   // Database health check function
-  const checkDatabaseHealth = async (): Promise<boolean> => {
+  const checkDatabaseHealth = useCallback(async (): Promise<boolean> => {
     try {
       console.log('🔍 Checking database health...');
       const { error } = await supabase
@@ -1731,10 +1731,10 @@ export default function ChatPage() {
       console.error('❌ Database health check failed:', error);
       return false;
     }
-  };
+  }, []);
 
   // Manual circuit breaker reset function
-  const resetCircuitBreaker = async () => {
+  const resetCircuitBreaker = useCallback(async () => {
     console.log('🔄 Manually resetting circuit breaker...');
     const isHealthy = await checkDatabaseHealth();
     if (isHealthy) {
@@ -1744,8 +1744,14 @@ export default function ChatPage() {
     } else {
       console.log('❌ Cannot reset circuit breaker - database is still unhealthy');
     }
-  };
+  }, [checkDatabaseHealth]);
 
+  // Add resetCircuitBreaker to debug functions after it's defined
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as Record<string, unknown>).resetCircuitBreaker = resetCircuitBreaker;
+    }
+  }, [resetCircuitBreaker]);
 
   // Token consumption via server API (atomic)
   const consumeTokens = async (
