@@ -1747,72 +1747,24 @@ export default function ChatPage() {
   };
 
 
-  // Direct token consumption with database operations
+  // Token consumption via server API (atomic)
   const consumeTokens = async (
     userId: string,
     model: string,
     price: number
   ): Promise<TokenConsumptionResult> => {
     try {
-      console.log('🪙 Parameters to show kevin:', { userId, model, price });
-      console.log('🔍 Current lock status:', isConsumingTokens);
-      
-      setIsConsumingTokens(false);
-      setDatabaseHealthy(true);
-      setLastDatabaseFailure(0);
-      
-      // Force React to process ALL state updates (like page refresh)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Verify state is completely reset (like fresh page load)
-      console.log('🔍 Verifying complete state reset (like page refresh)...');
-      console.log('🔍 isConsumingTokens:', isConsumingTokens);
-      console.log('🔍 databaseHealthy:', databaseHealthy);
-      console.log('🔍 lastDatabaseFailure:', lastDatabaseFailure);
-      
-      console.log('✅ Complete state reset successful (simulated page refresh)');
-      
-      // Validate state after reset
-      console.log('🔍 Validating state after reset...');
-      console.log('🔍 Lock status:', isConsumingTokens);
-      console.log('🔍 Database healthy:', databaseHealthy);
-      console.log('🔍 Last failure:', lastDatabaseFailure);
-      
-      // Check if already consuming tokens (proper mutex check)
-      if (isConsumingTokens) {
-        console.log('⚠️ Token consumption already in progress, skipping...');
-        console.log('⚠️ Lock status:', isConsumingTokens);
-        return {
-          success: false,
-          error: 'Token consumption already in progress'
-        };
-      }
-      
-      // Initialize tracking variables
-      let usageInserted = false;
-      let tokensUpdated = false;
-      
-      // Validate input
+      console.log('🪙 Starting token consumption via server API:', { userId, model, price });
+
       if (!userId || !model || price <= 0) {
-        setIsConsumingTokens(false);
         return {
           success: false,
           error: 'Invalid parameters'
         }
       }
 
-      // Get current user balance from state for immediate UX
+      // Get current balance for immediate UX
       const currentBalance = localUserProfile?.tokens || userProfile?.tokens || 0;
-      console.log('✅ Current balance from state:', currentBalance);
-      
-      // Use existing Supabase client to prevent multiple instances
-      console.log('🔄 Using existing Supabase client (preventing multiple instances)...');
-      console.log('✅ Using existing client (no new connections created)');
-      
-      // Skip database connectivity test to prevent timeouts
-      console.log('🔍 Skipping database test - proceeding with operations...');
-      
-      // Check if user has enough tokens
       if (currentBalance < price) {
         console.error('❌ Insufficient tokens');
         return {
@@ -1821,123 +1773,77 @@ export default function ChatPage() {
         }
       }
 
-      // Calculate new balance
+      // Optimistically update local state
       const newBalance = currentBalance - price;
       updateUserTokens(newBalance);
-      console.log('Current Balance is :' + newBalance);
-      
-      // Insert usage record with debugging
-      console.log('📝 Inserting usage record...');
-      console.log('📝 Supabase client status:', supabase ? 'Connected' : 'Not connected');
-      console.log('📝 Insert data:', { userId, model, price });
-      
-      try {
-        console.log('📝 About to call supabase.insert...');
+      console.log('✅ Local state updated optimistically:', newBalance);
+
+      // Call server API with retries
+      const maxAttempts = 3;
+      let attempt = 0;
+      let lastError: unknown = null;
+
+      while (attempt < maxAttempts) {
+        attempt++;
+        const start = Date.now();
         
-        // Create insert promise
-        const insertPromise = supabase
-          .from('usage')
-          .insert({
-            user_id: userId,
-            model: model,
-            price: price,
+        try {
+          console.log(`🔁 Attempt ${attempt}/${maxAttempts} - calling server API...`);
+          
+          const res = await fetch('/api/tokens/consume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, model, price })
           });
-        
-        console.log('📝 Insert promise created, awaiting...');
-        
-        // Create timeout promise that rejects after 10 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Database insert timeout after 10 seconds'));
-          }, 10000);
-        });
-        
-        // Race between insert and timeout
-        const { data: insertData, error: insertError } = await Promise.race([
-          insertPromise,
-          timeoutPromise
-        ]) as SupabaseResponse;
-        
-        console.log('📝 Insert operation completed');
-        
-        if (insertError) {
-          console.error('❌ Usage record insertion failed:', insertError);
-        } else {
-          console.log('✅ Usage record inserted successfully:', insertData);
-          usageInserted = true;
+
+          const json = await res.json().catch(() => ({})) as { success?: boolean; newBalance?: number; error?: string };
+          const durationMs = Date.now() - start;
+          
+          console.log(`🔁 Attempt ${attempt} result:`, { 
+            status: res.status, 
+            durationMs, 
+            success: json.success, 
+            newBalance: json.newBalance,
+            error: json.error 
+          });
+
+          if (res.ok && json.success && typeof json.newBalance === 'number') {
+            // Update with server-returned balance (more accurate)
+            updateUserTokens(json.newBalance);
+            console.log('✅ Token consumption successful via server API');
+            return { success: true, newTokenBalance: json.newBalance };
+          } else {
+            console.log('❌ Server response validation failed:', {
+              resOk: res.ok,
+              jsonSuccess: json.success,
+              newBalanceType: typeof json.newBalance,
+              newBalanceValue: json.newBalance,
+              jsonError: json.error
+            });
+          }
+
+          lastError = json.error || `HTTP ${res.status}`;
+        } catch (e) {
+          lastError = e;
+          console.error(`❌ Attempt ${attempt} failed:`, e);
         }
-      } catch (error) {
-        console.error('❌ Usage record insertion error:', error);
-      }
-      
-      // Update user tokens with debugging
-      console.log('🔄 Updating user tokens...');
-      console.log('🔄 Update data:', { userId, newBalance });
-      
-      try {
-        console.log('🔄 About to call supabase.update...');
-        
-        // Create update promise
-        const updatePromise = supabase
-          .from('users')
-          .update({ 
-            tokens: newBalance
-          })
-          .eq('user_id', userId)
-          .select('tokens');
-        
-        console.log('🔄 Update promise created, awaiting...');
-        
-        // Create timeout promise that rejects after 10 seconds
-        const updateTimeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Database update timeout after 10 seconds'));
-          }, 10000);
-        });
-        
-        // Race between update and timeout
-        const { data: updateData, error: updateError } = await Promise.race([
-          updatePromise,
-          updateTimeoutPromise
-        ]) as SupabaseResponse;
-        
-        console.log('🔄 Update operation completed');
-        
-        if (updateError) {
-          console.error('❌ Database update failed:', updateError);
-        } else {
-          console.log('✅ Database tokens updated successfully:', updateData);
-          tokensUpdated = true;
+
+        // Wait before retry (exponential backoff with jitter)
+        if (attempt < maxAttempts) {
+          const base = Math.pow(2, attempt - 1) * 1000;
+          const jitter = base * (0.6 + Math.random() * 0.8);
+          console.log(`⏳ Waiting ${Math.round(jitter)}ms before retry...`);
+          await new Promise(r => setTimeout(r, jitter));
         }
-      } catch (error) {
-        console.error('❌ Database update error:', error);
       }
-      
-      
-      // Check if database operations succeeded
-      if (usageInserted && tokensUpdated) {
-        console.log('✅ Token consumption completed successfully');
-        console.log('📊 Operation Summary:');
-        console.log(`  ✅ Local state updated: true`);
-        console.log(`  📝 Usage record inserted: ${usageInserted}`);
-        console.log(`  🔄 Database tokens updated: ${tokensUpdated}`);
-        
-        return {
-          success: true,
-          newTokenBalance: newBalance
-        };
-      } else {
-        console.log('❌ Token consumption failed - database operations incomplete');
-        console.log('📊 Operation Summary:');
-        console.log(`  ✅ Local state updated: true`);
-        console.log(`  📝 Usage record inserted: ${usageInserted}`);
-        console.log(`  🔄 Database tokens updated: ${tokensUpdated}`);
-        
-        return {
-          success: false,
-          error: 'Database operations failed - usage record or token update incomplete'
-        };
-      }
+
+      // All attempts failed - revert optimistic update
+      updateUserTokens(currentBalance);
+      console.error('❌ All server API attempts failed:', lastError);
+      return { 
+        success: false, 
+        error: lastError instanceof Error ? lastError.message : String(lastError) 
+      };
       
     } catch (error) {
       console.error('❌ Unexpected error:', error);
