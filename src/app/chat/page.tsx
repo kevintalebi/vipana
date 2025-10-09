@@ -2966,7 +2966,7 @@ export default function ChatPage() {
                   animation: 'neon-border 24s ease-in-out infinite'
                 }}
               >
-                <p className="text-[20px]">{message.text}</p>
+                <p className="text-[18px]">{message.text}</p>
                 
                 {/* AI Waiting Animation or Server Busy Message */}
                 {message.type === 'ai-waiting' && (
