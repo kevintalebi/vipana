@@ -469,17 +469,9 @@ export default function ChatPage() {
 
           setServices(groupedServices);
           
-          // Set default type and model
-          const types = Object.keys(groupedServices);
-          if (types.length > 0) {
-            const firstType = types[0];
-            setSelectedType(firstType);
-            
-            const firstModel = groupedServices[firstType]?.[0];
-            if (firstModel && firstModel.name) {
-              setSelectedModel(firstModel.name);
-            }
-          }
+          // Set default type and model to "متن" and "GPT"
+          setSelectedType('متن');
+          setSelectedModel('GPT');
         } else {
           console.log('=== NO SERVICES FOUND ===');
           // Use fallback services if no data
@@ -2960,7 +2952,7 @@ export default function ChatPage() {
               className={`flex ${message.isUser ? 'justify-start' : 'justify-end'}`}
             >
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg relative ${
+                className={`max-w-xs lg:max-w-4xl px-4 py-2 rounded-lg relative ${
                   message.isUser
                     ? `shadow-lg shadow-cyan-500/25 ${localUserProfile?.theme === 'day' ? 'text-black' : 'text-white'}`
                     : `glass border border-cyan-500/30 shadow-lg shadow-cyan-500/10 ${
@@ -2974,7 +2966,7 @@ export default function ChatPage() {
                   animation: 'neon-border 24s ease-in-out infinite'
                 }}
               >
-                <p className="text-sm">{message.text}</p>
+                <p className="text-[20px]">{message.text}</p>
                 
                 {/* AI Waiting Animation or Server Busy Message */}
                 {message.type === 'ai-waiting' && (
