@@ -21,6 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
+      <meta name="enamad" content="11447872" />
       <body
         className={`${vazir.variable} font-vazir antialiased`}
       >
