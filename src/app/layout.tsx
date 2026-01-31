@@ -12,6 +12,7 @@ const vazir = Vazirmatn({
 export const metadata: Metadata = {
   title: "ویپانا ارایه دهنده سرویس های هوش مصنوعی",
   description: "ویپانا، پلتفرم پیشرو در ارائه خدمات هوش مصنوعی با راهکارهای نوین برای بهینه‌سازی کسب‌وکارها. هوش مصنوعی قدرتمند،  برای رشد و افزایش بهره‌وری شما",
+  enamad: "11447872"
 };
 
 export default function RootLayout({
@@ -21,7 +22,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <meta name="enamad" content="11447872" />
       <body
         className={`${vazir.variable} font-vazir antialiased`}
       >
