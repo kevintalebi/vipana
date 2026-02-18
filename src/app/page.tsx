@@ -549,11 +549,25 @@ export default function Home() {
       </section>
 
         {/* Footer */}
-      <footer className="relative z-10 py-8 px-4 border-t border-cyan-500/20">
+      <footer className="relative z-10 py-8 px-4 border-t border-cyan-500/20 bg-[#2f3033]">
         <div className="max-w-6xl mx-auto text-center">
                  <p className="text-gray-400">
                    © 2024-2025 ویپانا. تمامی حقوق محفوظ است.
                  </p>
+        </div>
+        <div className="flex flex-wrap justify-center items-center gap-6 mx-auto mt-4">
+          <a target="_blank" rel="noopener noreferrer" href="https://trustseal.enamad.ir/?id=559858&Code=b4gjrCaX5tzVF3YuBMH6PEFd4UDF5vIT">
+            <img src="https://www.samanehha.com/images/upload/1643521765_%D8%A7%DB%8C%D9%86%D9%85%D8%A7%D8%AF.png" alt="اینماد" className="cursor-pointer" width={100} height={100} />
+          </a>
+          <a target="_blank" rel="noopener noreferrer" href="https://qr.mojavez.ir/track/I12986917">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzfUx8aGCq1oCsAPRY_I2y9V3irBJb8Ne-kg&s" alt="مجوز" className="cursor-pointer" width={100} height={100} />
+          </a>
+          <a target="_blank" rel="noopener noreferrer" href="https://gilan.irannsr.org/fa/real_persones/2696839/swd_id/106477/%D8%A7%D8%B9%D8%B6%D8%A7-%D9%85%D8%B4%D8%A7%D9%88%D8%B1%D8%A7%D9%86-%D8%AD%D9%82%DB%8C%D9%82%DB%8C.html">
+            <img src="https://www.samanehha.com/images/upload/1658203504_%D8%B3%D8%A7%D8%B2%D9%85%D8%A7%D9%86%20%D9%86%D8%B8%D8%A7%D9%85%20%D8%B5%D9%86%D9%81%DB%8C%20%D8%B1%D8%A7%DB%8C%D8%A7%D9%86%D9%87%20%D8%A7%DB%8C.png" alt="سازمان نظام صنفی" className="cursor-pointer" width={100} height={100} />
+          </a>
+          <a target="_blank" rel="noopener noreferrer" href="https://www.zarinpal.com/trustPage/vipana.ir">
+            <img src="https://parspng.com/wp-content/uploads/2023/01/zarin-palpng.parspng.com_.png" alt="زرین‌پال" className="cursor-pointer" width={100} height={100} />
+          </a>
         </div>
       </footer>
     </div>

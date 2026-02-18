@@ -85,7 +85,7 @@ export default function ChatPage() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedType, setSelectedType] = useState('TEXT');
   const [selectedModel, setSelectedModel] = useState('');
   const [services, setServices] = useState<ServicesData>({});
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -101,6 +101,7 @@ export default function ChatPage() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isRecharging, setIsRecharging] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Circuit breaker state for database operations
   const [databaseHealthy, setDatabaseHealthy] = useState(true);
@@ -260,6 +261,9 @@ export default function ChatPage() {
   // const [isUpdatingTheme] = useState(false);
   // const [lastThemeUpdate] = useState<number>(0);
 
+  // نوع محتوا متنی (هم «متن» و هم «TEXT» از سرویس/دیتابیس)
+  const isTextType = selectedType === 'متن' || selectedType === 'TEXT';
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -268,6 +272,20 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Restore conversationId from sessionStorage on mount (text chat)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('vipana_chat_conversation_id');
+      if (stored) setConversationId(stored);
+    }
+  }, []);
+  // Persist conversationId when it changes
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      sessionStorage.setItem('vipana_chat_conversation_id', conversationId);
+    }
+  }, [conversationId]);
 
   // Reset circuit breaker when database becomes healthy
   useEffect(() => {
@@ -469,9 +487,11 @@ export default function ChatPage() {
 
           setServices(groupedServices);
           
-          // Set default type and model to "متن" and "GPT"
-          setSelectedType('متن');
-          setSelectedModel('GPT');
+          // Set default type to TEXT (or متن if TEXT not in services), then first model for that type
+          const defaultType = groupedServices['TEXT'] ? 'TEXT' : (groupedServices['متن'] ? 'متن' : Object.keys(groupedServices)[0]);
+          const defaultTypeServices = groupedServices[defaultType];
+          setSelectedType(defaultType);
+          setSelectedModel(defaultTypeServices?.[0]?.name ?? '');
         } else {
           console.log('=== NO SERVICES FOUND ===');
           // Use fallback services if no data
@@ -737,7 +757,7 @@ export default function ChatPage() {
       // Add waiting message with different text based on content type and model
         const waitingText = selectedType === 'ویدیو' 
           ? 'در حال تولید ویدیو... این فرآیند ممکن است 5-20 دقیقه طول بکشد. لطفاً صبر کنید'
-          : selectedType === 'متن'
+          : isTextType
           ? 'در حال تولید متن... لطفاً صبر کنید'
           : 'در حال تولید عکس با KIE... لطفاً صبر کنید';
         
@@ -943,6 +963,62 @@ export default function ChatPage() {
         }
       }
       
+      // Text chat: Google Gemini + LangChain + MongoDB (no webhook)
+      if (isTextType) {
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: inputValue.trim(),
+              conversationId: conversationId ?? undefined,
+              userId: user?.id || userProfile?.user_id || '',
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          if (data.success && typeof data.content === 'string') {
+            const newId = data.conversationId ? String(data.conversationId) : null;
+            if (newId) {
+              setConversationId(newId);
+            }
+            setMessages(prev => {
+              const withoutWaiting = prev.filter(m => !m.id.endsWith('_waiting'));
+              return [
+                ...withoutWaiting,
+                {
+                  id: Date.now().toString() + '_ai',
+                  text: data.content,
+                  isUser: false,
+                  timestamp: new Date(),
+                },
+              ];
+            });
+            setInputValue('');
+          } else {
+            throw new Error(data.error || 'پاسخ نامعتبر');
+          }
+        } catch (err) {
+          setMessages(prev => {
+            const withoutWaiting = prev.filter(m => !m.id.endsWith('_waiting'));
+            return [
+              ...withoutWaiting,
+              {
+                id: Date.now().toString() + '_error',
+                text: 'خطا در چت: ' + (err instanceof Error ? err.message : 'خطای نامشخص'),
+                isUser: false,
+                timestamp: new Date(),
+              },
+            ];
+          });
+        } finally {
+          setIsWaitingForResponse(false);
+        }
+        return;
+      }
+      
       // Check webhook status for non-image types
       // Skip webhook status check - n8n webhooks don't support GET requests
       const webhookStatus = { available: true, isTestMode: false };
@@ -989,7 +1065,7 @@ export default function ChatPage() {
       console.log('Using webhook for type:', selectedType);
       
       // Check if this is text generation - use n8n webhook
-      if (selectedType === 'متن') {
+      if (isTextType) {
         console.log('Text generation detected - using n8n webhook');
       }
       try {
@@ -1066,7 +1142,7 @@ export default function ChatPage() {
             }
             
             // For text requests, don't start polling - wait for immediate response
-            if (selectedType === 'متن') {
+            if (isTextType) {
               console.log('Text request detected, processing immediate response...');
             }
             
@@ -1078,7 +1154,7 @@ export default function ChatPage() {
             let updatedTokens = null;
             
             // Log for text generation
-            if (selectedType === 'متن') {
+            if (isTextType) {
               console.log('🔤 Processing text generation response from n8n webhook');
             }
             
@@ -1386,7 +1462,7 @@ export default function ChatPage() {
               });
               
               // Log specific message for text generation
-              if (selectedType === 'متن' && messageType === 'text') {
+              if (isTextType && messageType === 'text') {
                 console.log('✅ Text generation response received and displayed to user');
                 console.log('Text content:', messageContent);
               } else {
@@ -3352,48 +3428,59 @@ export default function ChatPage() {
                         )}
                       </select>
                     </div>
-                    {/* Model Selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-cyan-300">مدل:</label>
-                      <select 
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        disabled={servicesLoading || !selectedType}
-                        className="w-full px-3 py-2 neon-input rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm disabled:opacity-50"
-                      >
-                        {servicesLoading ? (
-                          <option value="">در حال بارگذاری...</option>
-                        ) : !selectedType ? (
-                          <option value="">ابتدا نوع محتوا را انتخاب کنید</option>
-                        ) : !services[selectedType] || services[selectedType].length === 0 ? (
-                          <option value="">هیچ مدلی برای این نوع یافت نشد</option>
-                        ) : (
-                          (() => {
-                            const typeServices = services[selectedType];
-                            console.log('Rendering model dropdown for type:', selectedType, 'Services:', typeServices);
-                            return typeServices?.map((service) => (
-                              <option key={service.id} value={service.name}>{service.name}</option>
-                            ));
-                          })()
-                        )}
-                      </select>
-                    </div>
 
-                    {/* Aspect Ratio Selection - Show for both image and video types */}
-                    {(selectedType === 'عکس' || selectedType === 'ویدیو') && (
+                    {/* دکمه انتخاب - در حالت متن زیر نوع محتوا (متن یا TEXT) */}
+                    {(selectedType === 'متن' || selectedType === 'TEXT') && (
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-cyan-300">
-                          {selectedType === 'عکس' ? 'نسبت تصویر:' : 'نسبت ویدیو:'}
-                        </label>
-                        <select 
-                          value={selectedAspectRatio}
-                          onChange={(e) => setSelectedAspectRatio(e.target.value)}
-                          className="w-full px-3 py-2 neon-input rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                        <button
+                          type="button"
+                          onClick={() => setSidebarOpen(false)}
+                          className="w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200"
                         >
-                          <option value="9:16">9:16 (عمودی)</option>
-                          <option value="16:9">16:9 (افقی)</option>
-                          <option value="1:1">1:1 (مربع)</option>
-                        </select>
+                          انتخاب
+                        </button>
+                      </div>
+                    )}
+
+                    {/* نسبت و دکمه انتخاب - برای عکس و ویدیو (عکس / IMAGE و ویدیو / VIDEO) */}
+                    {(selectedType === 'عکس' || selectedType === 'IMAGE' || selectedType === 'ویدیو' || selectedType === 'VIDEO') && (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-cyan-300">
+                            {(selectedType === 'عکس' || selectedType === 'IMAGE') ? 'نسبت تصویر:' : 'نسبت ویدیو:'}
+                          </label>
+                          <select 
+                            value={selectedAspectRatio}
+                            onChange={(e) => setSelectedAspectRatio(e.target.value)}
+                            className="w-full px-3 py-2 neon-input rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                          >
+                            <option value="9:16">9:16 (عمودی)</option>
+                            <option value="16:9">16:9 (افقی)</option>
+                            <option value="1:1">1:1 (مربع)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setSidebarOpen(false)}
+                            className="w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200"
+                          >
+                            انتخاب
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* دکمه انتخاب - برای صدا (صدا یا VOICE) */}
+                    {(selectedType === 'صدا' || selectedType === 'VOICE') && (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setSidebarOpen(false)}
+                          className="w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200"
+                        >
+                          انتخاب
+                        </button>
                       </div>
                     )}
                   </div>
