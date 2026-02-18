@@ -5,7 +5,6 @@
 import {
     GoogleGenAI,
   } from '@google/genai';
-  import mime from 'mime';
   import { writeFile } from 'fs';
   
   function saveBinaryFile(fileName: string, content: Buffer) {
